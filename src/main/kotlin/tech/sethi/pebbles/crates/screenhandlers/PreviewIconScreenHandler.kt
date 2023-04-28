@@ -85,7 +85,6 @@ class PreviewIconScreenHandler(
                 val currentCrateConfig = currentCrateConfigs.first { it.crateName == crateName }
                 val newCrateConfig = CrateConfig(
                     crateName = crateName,
-                    material = currentCrateConfig.material,
                     crateKey = currentCrateConfig.crateKey,
                     prize = updatedPrizes
                 )

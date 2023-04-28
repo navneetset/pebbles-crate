@@ -8,7 +8,7 @@ import java.io.File
 
 class CrateConfigManager {
     private val gson: Gson = GsonBuilder().registerTypeAdapter(ItemStack::class.java, ItemStackTypeAdapter()).create()
-    private val configDirectory = File("config/pebbles-crate/")
+    private val configDirectory = File("config/pebbles-crate/crates")
 
 
     init {
@@ -62,8 +62,6 @@ class CrateConfigManager {
 
 data class CrateConfig(
     val crateName: String,
-//    val lore: List<String>,
-    val material: String,
     val crateKey: CrateKey,
     var prize: List<Prize>,
 )

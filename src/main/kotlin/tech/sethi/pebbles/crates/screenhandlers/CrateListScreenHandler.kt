@@ -23,7 +23,7 @@ class CrateListScreenHandler(syncId: Int, player: PlayerEntity) :
         val existingCrates = crateConfigManager.loadCrateConfigs()
 
         for ((index, crateConfig) in existingCrates.withIndex()) {
-            val crateItem = ItemStack(Registry.ITEM.get(Identifier(crateConfig.material)))
+            val crateItem = ItemStack(Items.CHEST)
             crateItem.setCustomName(Text.literal(crateConfig.crateName).formatted(Formatting.GREEN))
             inventory.setStack(index, crateItem)
         }
@@ -63,7 +63,7 @@ class CrateListScreenHandler(syncId: Int, player: PlayerEntity) :
         player.sendMessage(Text.of("Item: ${inventory.getStack(slotIndex)}"), false)
 
         if (slotIndex == 53) { // Check if the "Create New Crate" button is clicked
-            player.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, inv, p ->
+            player.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, _, p ->
                 CrateNameScreenHandler(syncId, p)
             }, Text.of("Crate Configuration")))
         } else if (slotIndex in 0..44 && actionType == SlotActionType.PICKUP) {

@@ -62,7 +62,6 @@ class GetCrateCommand {
                 crateItemStack.nbt = nbt
 
                 player.sendMessage(Text.literal("Giving $crateName to ${player.name.string}"), false)
-                player.sendMessage(Text.literal("Material: ${crateConfig.material}"), false)
 
                 player.giveItemStack(crateItemStack)
                 context.source.sendFeedback(
