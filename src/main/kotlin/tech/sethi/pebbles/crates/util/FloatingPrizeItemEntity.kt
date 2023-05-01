@@ -12,14 +12,12 @@ class FloatingPrizeItemEntity(
     y: Double,
     z: Double,
     stack: ItemStack,
-    private val armorStandEntity: ArmorStandEntity
 ) : ItemEntity(world, x, y, z, stack) {
     private var ticksElapsed = 0
 
     init {
         setNoGravity(true)
         setPickupDelay(Int.MAX_VALUE)
-        startRiding(armorStandEntity)
         isInvisible = false
         isInvulnerable = true
         velocity = Vec3d.ZERO
@@ -29,7 +27,6 @@ class FloatingPrizeItemEntity(
         super.tick()
         ticksElapsed++
         if (ticksElapsed >= 100) {
-            armorStandEntity.kill()
             this.kill()
         }
     }

@@ -1,4 +1,4 @@
-package tech.sethi.pebbles.crates.screenhandlers
+package tech.sethi.pebbles.crates.screenhandlers.admin
 
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.entity.player.PlayerInventory

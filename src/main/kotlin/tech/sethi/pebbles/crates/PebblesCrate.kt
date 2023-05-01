@@ -6,16 +6,17 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
 import net.minecraft.block.Blocks
+import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.server.world.ServerWorld
-import net.minecraft.sound.SoundCategory
-import net.minecraft.sound.SoundEvents
 import net.minecraft.text.Text
 import net.minecraft.util.ActionResult
 import net.minecraft.util.Formatting
+import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3d
+import net.minecraft.util.registry.Registry
 import org.slf4j.LoggerFactory
 import tech.sethi.pebbles.crates.commands.GetCrateCommand
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
@@ -23,19 +24,26 @@ import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
 import tech.sethi.pebbles.crates.lootcrates.CrateEventHandler
 import tech.sethi.pebbles.crates.particles.CrateParticles
 import tech.sethi.pebbles.crates.screenhandlers.PrizeDisplayScreenHandlerFactory
+import tech.sethi.pebbles.crates.util.Task
+import tech.sethi.pebbles.crates.util.TickHandler
+import tech.sethi.pebbles.crates.util.setLore
 import tech.sethi.pebbleslootcrate.commands.CrateCommand
-import java.util.concurrent.ConcurrentHashMap
-
+import java.util.*
 
 object PebblesCrate : ModInitializer {
     private val logger = LoggerFactory.getLogger("pebbles-crates")
     const val MOD_ID = "pebbles_crate"
-    val cratesInUse = ConcurrentHashMap.newKeySet<BlockPos>()
+    val cratesInUse = Collections.synchronizedSet(mutableSetOf<BlockPos>())
+    val playerCooldowns: MutableMap<UUID, Long> = Collections.synchronizedMap(mutableMapOf())
+    val tasks: MutableMap<Long, MutableList<Task>> = mutableMapOf()
+
 
     override fun onInitialize() {
         logger.info("Initializing Pebbles Loot Crates!")
 
         val getCrateCommand = GetCrateCommand()
+
+        TickHandler()
 
         CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
             CrateCommand.register(dispatcher)
@@ -61,32 +69,60 @@ object PebblesCrate : ModInitializer {
                     val crateName = savedCrateData[hitResult.blockPos]
                     val crateConfig = CrateConfigManager().getCrateConfig(crateName!!)
 
+                    val parsedKey = Registry.ITEM.get(
+                        Identifier.tryParse(
+                            crateConfig?.crateKey?.material ?: "minecraft:paper"
+                        )
+                    )
+                    val parseKeyStack = ItemStack(parsedKey)
+                    val crateKeyLore = crateConfig?.crateKey?.lore?.map { Text.of(it) }
+                    if (crateKeyLore != null) {
+                        setLore(parseKeyStack, crateKeyLore)
+                    }
+                    val nbt = parseKeyStack.orCreateNbt
                     if (crateConfig != null) {
-                        if (player.isSneaking) {
-                            // Handle the scenario when the player is sneaking
-                            val crateEventHandler = CrateEventHandler(world, hitResult.blockPos, player as ServerPlayerEntity, crateConfig.prize, cratesInUse)
+                        nbt.putString("CrateName", crateConfig.crateName)
+                    }
 
+                    if (crateConfig != null) {
+                        val heldStack = player.mainHandStack
+                        if (heldStack.item == parseKeyStack.item && heldStack.hasNbt() && heldStack.nbt!!.getString(
+                                "CrateName"
+                            ) == crateConfig.crateName
+                        ) {
                             if (cratesInUse.contains(hitResult.blockPos)) {
-                                player.sendMessage(Text.literal("Someone is already using this crate!").formatted(Formatting.RED), false)
+                                player.sendMessage(
+                                    Text.literal("Someone is already using this crate!").formatted(Formatting.RED),
+                                    false
+                                )
                                 return@UseBlockCallback ActionResult.SUCCESS
                             }
-                            val selectedPrize = crateEventHandler.weightedRandomSelection(crateConfig.prize)
-                            crateEventHandler.showPrizesAnimation(selectedPrize)
 
-                            // Play the crate open sound
-                            world.playSound(
-                                null as ServerPlayerEntity?,
+                            val crateEventHandler = CrateEventHandler(
+                                world,
                                 hitResult.blockPos,
-                                SoundEvents.BLOCK_LEVER_CLICK,
-                                SoundCategory.BLOCKS,
-                                1.0f,
-                                1.0f
+                                player as ServerPlayerEntity,
+                                crateConfig.prize,
+                                cratesInUse,
+                                playerCooldowns
                             )
+
+                            if (crateEventHandler.canOpenCrate()) {
+                                heldStack.decrement(1)
+                                val finalPrize = crateEventHandler.weightedRandomSelection(crateConfig.prize)
+                                crateEventHandler.showPrizesAnimation(finalPrize)
+                                crateEventHandler.updatePlayerCooldown()
+                            }
+
 
                             // Floating item will be spawned in the CrateEventHandler's init block
                         } else {
                             // Open crate preview GUI
-                            player.openHandledScreen(PrizeDisplayScreenHandlerFactory( Text.literal("$crateName") , crateConfig))
+                            player.openHandledScreen(
+                                PrizeDisplayScreenHandlerFactory(
+                                    Text.literal("$crateName"), crateConfig
+                                )
+                            )
                         }
                         return@UseBlockCallback ActionResult.SUCCESS
                     }
@@ -143,7 +179,7 @@ object PebblesCrate : ModInitializer {
         for (pos in savedCrateData.keys) {
             val playersNearby = world.getPlayersByDistance(pos, 32.0) // Only get players within 32 blocks of the chest
             for (player in playersNearby) {
-                CrateParticles.spawnSpiralParticles(player, pos, world)
+                CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
             }
         }
     }
@@ -158,31 +194,4 @@ object PebblesCrate : ModInitializer {
             ) <= distance * distance
         }
     }
-
-
 }
-
-
-//        UseItemCallback.EVENT.register(UseItemCallback { player, world, hand ->
-//            val itemStack = player.getStackInHand(hand)
-//            player.sendMessage(Text.literal("Placing Enderchest"), false)
-//
-//            if (itemStack.nbt?.contains("CrateName") == true) {
-//                val hitResult = player.raycast(4.5, 0.0f, false)
-//
-//                if (hitResult.type == HitResult.Type.BLOCK) {
-//                    player.sendMessage(Text.literal("Placing Enderchest"), false)
-//                    val blockHitResult = hitResult as BlockHitResult
-//                    val blockPos = blockHitResult.blockPos.offset(blockHitResult.side)
-//
-//                    if (world.canPlayerModifyAt(player, blockPos) && world.getBlockState(blockPos).isAir) {
-//                        val crateName = itemStack.nbt!!.getString("CrateName")
-//                        crateDataMap[blockPos] = crateName
-//                        crateDataManager.saveCrateData(crateDataMap)
-//                        player.sendMessage(Text.literal("Placing $crateName"), false)
-//                        return@UseItemCallback TypedActionResult.success(itemStack, world.isClient)
-//                    }
-//                }
-//            }
-//            TypedActionResult.pass(itemStack)
-//        })

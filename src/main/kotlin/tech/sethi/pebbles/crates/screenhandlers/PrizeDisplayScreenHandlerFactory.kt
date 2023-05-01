@@ -17,35 +17,38 @@ import net.minecraft.util.Identifier
 import net.minecraft.util.registry.Registry
 import tech.sethi.pebbles.crates.lootcrates.CrateConfig
 import tech.sethi.pebbles.crates.lootcrates.Prize
+import tech.sethi.pebbles.crates.util.ParseableName
 import tech.sethi.pebbles.crates.util.setLore
-import java.math.BigDecimal
-import kotlin.math.round
 
-class PrizeDisplayScreenHandlerFactory(private val title: Text, private val crateConfig: CrateConfig): NamedScreenHandlerFactory {
+class PrizeDisplayScreenHandlerFactory(private val title: Text, private val crateConfig: CrateConfig) :
+    NamedScreenHandlerFactory {
 
 
     override fun createMenu(syncId: Int, inv: PlayerInventory, player: PlayerEntity): ScreenHandler {
         var currentPage = 0
 
         val crateItems = crateConfig.prize
-        val handler =
-            object : GenericContainerScreenHandler(ScreenHandlerType.GENERIC_9X6, syncId, inv, CrateInventory(crateItems, currentPage), 6) {
-                override fun onSlotClick(slotNumber: Int, button: Int, action: SlotActionType, playerEntity: PlayerEntity) {
-                    if (slotNumber == 45) { // Previous page arrow
-                        if (currentPage > 0) {
-                            currentPage--
-                            (this.inventory as CrateInventory).populateInventory(crateItems, currentPage)
-                        }
-                    } else if (slotNumber == 53) { // Next page arrow
-                        if (currentPage < (crateItems.size - 1) / 45) {
-                            currentPage++
-                            (this.inventory as CrateInventory).populateInventory(crateItems, currentPage)
-                        }
-                    } else {
-                        return
+        val handler = object : GenericContainerScreenHandler(
+            ScreenHandlerType.GENERIC_9X6, syncId, inv, CrateInventory(crateItems, currentPage), 6
+        ) {
+            override fun onSlotClick(
+                slotNumber: Int, button: Int, action: SlotActionType, playerEntity: PlayerEntity
+            ) {
+                if (slotNumber == 45) { // Previous page arrow
+                    if (currentPage > 0) {
+                        currentPage--
+                        (this.inventory as CrateInventory).populateInventory(crateItems, currentPage)
                     }
+                } else if (slotNumber == 53) { // Next page arrow
+                    if (currentPage < (crateItems.size - 1) / 45) {
+                        currentPage++
+                        (this.inventory as CrateInventory).populateInventory(crateItems, currentPage)
+                    }
+                } else {
+                    return
                 }
             }
+        }
         return handler
 
     }
@@ -57,7 +60,6 @@ class PrizeDisplayScreenHandlerFactory(private val title: Text, private val crat
 
 
 class CrateInventory(private val crateItems: List<Prize>, private var currentPage: Int) : SimpleInventory(54) {
-
     init {
         populateInventory(crateItems, currentPage)
     }
@@ -72,6 +74,8 @@ class CrateInventory(private val crateItems: List<Prize>, private var currentPag
         for (index in startIndex until endIndex) {
             val prize = crateItems[index]
             val itemStack = ItemStack(Registry.ITEM.get(Identifier.tryParse(prize.material)))
+            val parsedName = ParseableName(prize.name).returnMessageAsStyledText()
+
             val chance = prize.chance.toDouble() / totalWeight.toDouble() * 100
             val roundedChance = String.format("%.2f", chance)
 
@@ -81,7 +85,7 @@ class CrateInventory(private val crateItems: List<Prize>, private var currentPag
             }
 
             setLore(itemStack, listOf(Text.of("Chance: ${roundedChance}%")))
-            setStack(index - startIndex, itemStack)
+            setStack(index - startIndex, itemStack.setCustomName(parsedName))
         }
 
         // Fill the bottom row with gray stained glass
