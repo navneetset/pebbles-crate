@@ -1,4 +1,4 @@
-package tech.sethi.pebbles.crates.screenhandlers
+package tech.sethi.pebbles.crates.screenhandlers.admin.crateconfig
 
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.entity.player.PlayerInventory
@@ -20,7 +20,7 @@ import tech.sethi.pebbles.crates.lootcrates.Prize
 import tech.sethi.pebbles.crates.util.ParseableName
 import tech.sethi.pebbles.crates.util.setLore
 
-class PrizeDisplayScreenHandlerFactory(private val title: Text, private val crateConfig: CrateConfig) :
+class CrafeEditItemScreenHandlerFactory(private val title: Text, private val crateConfig: CrateConfig) :
     NamedScreenHandlerFactory {
     override fun createMenu(syncId: Int, inv: PlayerInventory, player: PlayerEntity): ScreenHandler {
         var currentPage = 0

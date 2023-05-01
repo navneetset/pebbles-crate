@@ -30,7 +30,6 @@ class CrateTransformer(val crateConfig: CrateConfig, player: PlayerEntity) {
 
         val nbt = crateItemStack.orCreateNbt
         nbt.putString("CrateName", crateName)
-        crateItemStack.nbt = nbt
         crateItemStack.setCustomName(Text.literal(crateName))
 
         player.sendMessage(Text.literal("Giving $crateName to ${player.name.string}"), false)

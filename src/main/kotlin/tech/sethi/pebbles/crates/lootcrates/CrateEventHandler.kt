@@ -31,7 +31,8 @@ class CrateEventHandler(
     private val player: ServerPlayerEntity,
     private val prizes: List<Prize>,
     private val cratesInUse: MutableSet<BlockPos>,
-    private val playerCooldowns: MutableMap<UUID, Long>
+    private val playerCooldowns: MutableMap<UUID, Long>,
+    private val crateName: String
 ) {
     companion object {
         const val COOLDOWN_TIME = 5000L
@@ -64,7 +65,7 @@ class CrateEventHandler(
             val message = prize.messageToOpener.replace("{prize_name}", prize.name)
             var broadcast = prize.broadcast.replace("{prize_name}", prize.name)
             broadcast = broadcast.replace("{player_name}", player.entityName)
-            broadcast = broadcast.replace("{crate_name}", "Shiny Crate")
+            broadcast = broadcast.replace("{crate_name}", crateName)
             ParseableMessage(message, player, prize.name).send()
             ParseableMessage(broadcast, player, prize.name).sendToAll()
         }

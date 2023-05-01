@@ -17,7 +17,7 @@ import tech.sethi.pebbles.crates.lootcrates.CrateTransformer
 import tech.sethi.pebbles.crates.screenhandlers.admin.cratelist.CrateListScreenHandler
 
 class CrateConfigScreenHandler(
-    syncId: Int, player: PlayerEntity, private val crateName: String
+    syncId: Int, player: PlayerEntity, crateName: String
 ) : GenericContainerScreenHandler(ScreenHandlerType.GENERIC_9X3, syncId, player.inventory, SimpleInventory(9 * 3), 3) {
 
     init {

@@ -1,9 +1,7 @@
 package tech.sethi.pebbles.crates.particles
 
-import com.mojang.brigadier.ParseResults
 import net.minecraft.network.packet.s2c.play.ParticleS2CPacket
 import net.minecraft.particle.ParticleTypes
-import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.server.world.ServerWorld
 import net.minecraft.sound.SoundCategory
@@ -69,13 +67,25 @@ object CrateParticles {
             )
         }
 
+        val offsetX = 0.5
+        val offsetY = 0.2
+        val offsetZ = 0.5
 
-        // execute command
-        val command = "particle minecraft:sculk_soul ~ ~ ~ 0 0.2 0 0.1 100 normal".replace(
-            "~ ~ ~", "${pos.x} ${pos.y + 0.5} ${pos.z}"
+        val particlePacket = ParticleS2CPacket(
+            ParticleTypes.SCULK_SOUL,
+            false,
+            pos.x + offsetX,
+            pos.y + 0.5 + offsetY,
+            pos.z + offsetZ,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.1f,
+            100
         )
-        val parseResults: ParseResults<ServerCommandSource> =
-            player.server.commandManager.dispatcher.parse(command, player.server.commandSource)
-        player.server.commandManager.dispatcher.execute(parseResults)
+        player.networkHandler.sendPacket(particlePacket)
+
+        player.networkHandler.sendPacket(particlePacket)
+
     }
 }

@@ -5,7 +5,6 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
-import net.minecraft.block.Blocks
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 import net.minecraft.server.network.ServerPlayerEntity
@@ -53,92 +52,90 @@ object PebblesCrate : ModInitializer {
             getCrateCommand.register(dispatcher)
         }
 
-        UseBlockCallback.EVENT.register(UseBlockCallback { player, world, _, hitResult ->
-            if (world.isClient) {
+        // Load the saved crate data
+        val crateDataManager = CrateDataManager()
+        val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
+
+        UseBlockCallback.EVENT.register(UseBlockCallback { player, world, hand, hitResult ->
+            if (world.isClient || hand != net.minecraft.util.Hand.MAIN_HAND) {
                 return@UseBlockCallback ActionResult.PASS
             }
 
-            val blockState = world.getBlockState(hitResult.blockPos)
-            if (blockState.block == Blocks.CHEST || blockState.block == Blocks.ENDER_CHEST) {
-                // Load the saved crate data
-                val crateDataManager = CrateDataManager()
-                val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
+            // Check if the clicked position is in the crate data
+            if (hitResult.blockPos in savedCrateData) {
+                val crateName = savedCrateData[hitResult.blockPos]
+                val crateConfig = CrateConfigManager().getCrateConfig(crateName!!)
 
-                // Check if the clicked position is in the crate data
-                if (hitResult.blockPos in savedCrateData) {
-                    val crateName = savedCrateData[hitResult.blockPos]
-                    val crateConfig = CrateConfigManager().getCrateConfig(crateName!!)
-
-                    val parsedKey = Registry.ITEM.get(
-                        Identifier.tryParse(
-                            crateConfig?.crateKey?.material ?: "minecraft:paper"
-                        )
+                val parsedKey = Registry.ITEM.get(
+                    Identifier.tryParse(
+                        crateConfig?.crateKey?.material ?: "minecraft:gold_nugget"
                     )
-                    val parseKeyStack = ItemStack(parsedKey)
-                    val crateKeyLore = crateConfig?.crateKey?.lore?.map { Text.of(it) }
-                    if (crateKeyLore != null) {
-                        setLore(parseKeyStack, crateKeyLore)
-                    }
-                    val nbt = parseKeyStack.orCreateNbt
-                    if (crateConfig != null) {
-                        nbt.putString("CrateName", crateConfig.crateName)
-                    }
+                )
+                val parseKeyStack = ItemStack(parsedKey)
+                val crateKeyLore = crateConfig?.crateKey?.lore?.map { Text.of(it) }
+                if (crateKeyLore != null) {
+                    setLore(parseKeyStack, crateKeyLore)
+                }
+                val nbt = parseKeyStack.orCreateNbt
+                if (crateConfig != null) {
+                    nbt.putString("CrateName", crateConfig.crateName)
+                }
 
-                    if (crateConfig != null) {
-                        val heldStack = player.mainHandStack
-                        if (heldStack.item == parseKeyStack.item && heldStack.hasNbt() && heldStack.nbt!!.getString(
-                                "CrateName"
-                            ) == crateConfig.crateName
-                        ) {
-                            if (cratesInUse.contains(hitResult.blockPos)) {
-                                player.sendMessage(
-                                    Text.literal("Someone is already using this crate!").formatted(Formatting.RED),
-                                    false
-                                )
-                                return@UseBlockCallback ActionResult.SUCCESS
-                            }
-
-                            val crateEventHandler = CrateEventHandler(
-                                world,
-                                hitResult.blockPos,
-                                player as ServerPlayerEntity,
-                                crateConfig.prize,
-                                cratesInUse,
-                                playerCooldowns
-                            )
-
-                            if (crateEventHandler.canOpenCrate()) {
-                                heldStack.decrement(1)
-                                val finalPrize = crateEventHandler.weightedRandomSelection(crateConfig.prize)
-                                crateEventHandler.showPrizesAnimation(finalPrize)
-                                crateEventHandler.updatePlayerCooldown()
-                            }
-
-
-                            // Floating item will be spawned in the CrateEventHandler's init block
-                        } else {
-                            // Open crate preview GUI
-                            player.openHandledScreen(
-                                PrizeDisplayScreenHandlerFactory(
-                                    Text.literal("$crateName"), crateConfig
-                                )
-                            )
-                        }
-                        return@UseBlockCallback ActionResult.SUCCESS
-                    }
-                } else {
-                    // Assign a new crate if the player is holding a named paper
+                if (crateConfig != null) {
                     val heldStack = player.mainHandStack
-                    if (heldStack.item == Items.PAPER && heldStack.hasCustomName()) {
-                        val crateName = heldStack.name.string
-                        savedCrateData[hitResult.blockPos] = crateName
-                        crateDataManager.saveCrateData(savedCrateData)
+                    if (heldStack.item == parseKeyStack.item && heldStack.hasNbt() && heldStack.nbt!!.getString(
+                            "CrateName"
+                        ) == crateConfig.crateName
+                    ) {
+                        if (cratesInUse.contains(hitResult.blockPos)) {
+                            player.sendMessage(
+                                Text.literal("Someone is already using this crate!").formatted(Formatting.RED), false
+                            )
+                            return@UseBlockCallback ActionResult.SUCCESS
+                        }
 
-                        player.sendMessage(
-                            Text.literal("Assigned a $crateName crate to the chest at ${hitResult.blockPos}"), false
+                        val crateEventHandler = CrateEventHandler(
+                            world,
+                            hitResult.blockPos,
+                            player as ServerPlayerEntity,
+                            crateConfig.prize,
+                            cratesInUse,
+                            playerCooldowns,
+                            crateName
                         )
-                        return@UseBlockCallback ActionResult.SUCCESS
+
+                        if (crateEventHandler.canOpenCrate()) {
+                            heldStack.decrement(1)
+                            val finalPrize = crateEventHandler.weightedRandomSelection(crateConfig.prize)
+                            crateEventHandler.showPrizesAnimation(finalPrize)
+                            crateEventHandler.updatePlayerCooldown()
+                        }
+
+
+                        // Floating item will be spawned in the CrateEventHandler's init block
+                    } else {
+                        // Open crate preview GUI
+                        player.openHandledScreen(
+                            PrizeDisplayScreenHandlerFactory(
+                                Text.literal("$crateName"), crateConfig
+                            )
+                        )
                     }
+                    return@UseBlockCallback ActionResult.SUCCESS
+                }
+            } else {
+                // Assign a new crate if the player is holding a named paper
+                val heldStack = player.mainHandStack
+                if (heldStack.item == Items.PAPER && heldStack.hasCustomName()) {
+                    val crateName = heldStack.nbt!!.getString("CrateName")
+                    savedCrateData[hitResult.blockPos] = crateName
+                    crateDataManager.saveCrateData(savedCrateData)
+
+                    player.sendMessage(
+                        Text.literal("Assigned a $crateName crate to the block at ${hitResult.blockPos}")
+                            .formatted(Formatting.GRAY), false
+                    )
+                    return@UseBlockCallback ActionResult.SUCCESS
                 }
             }
 
@@ -152,13 +149,15 @@ object PebblesCrate : ModInitializer {
             val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
 
             // Check if the broken block position is in the crate data
-            if (pos in savedCrateData && state.block == Blocks.CHEST || pos in savedCrateData && state.block == Blocks.ENDER_CHEST) {
+            if (pos in savedCrateData) {
                 // Remove the crate data for this position
                 savedCrateData.remove(pos)
                 crateDataManager.saveCrateData(savedCrateData)
 
                 // Send a message to the player for debugging purposes
-                player.sendMessage(Text.literal("Crate data removed for position: $pos"), false)
+                player.sendMessage(
+                    Text.literal("Crate data removed for position: $pos").formatted(Formatting.GRAY), false
+                )
             }
         })
 
