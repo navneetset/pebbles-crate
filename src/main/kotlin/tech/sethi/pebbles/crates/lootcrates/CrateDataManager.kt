@@ -22,8 +22,7 @@ class CrateDataManager {
 
         try {
             FileReader(CRATE_DATA_FILE).use { reader ->
-                val rawCrateData = GSON.fromJson<Map<String, String>>(reader, CRATE_DATA_TYPE)
-
+                val rawCrateData = GSON.fromJson<Map<String, String>>(reader, CRATE_DATA_TYPE) ?: return crateData
                 for ((key, value) in rawCrateData) {
                     val pos = BlockPos.fromLong(key.toLong())
                     crateData[pos] = value

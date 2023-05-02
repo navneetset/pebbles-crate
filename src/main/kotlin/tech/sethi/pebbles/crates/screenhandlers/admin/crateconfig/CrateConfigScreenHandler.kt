@@ -33,7 +33,7 @@ class CrateConfigScreenHandler(
             13, ItemStack(Items.TRIPWIRE_HOOK).setCustomName(Text.literal("Get Key").formatted(Formatting.GOLD))
         )
         inventory.setStack(
-            14, ItemStack(Items.ITEM_FRAME).setCustomName(Text.literal("Configure Prize").formatted(Formatting.GOLD))
+            14, ItemStack(Items.ITEM_FRAME).setCustomName(Text.literal("Configure Prize (To be implemented)").formatted(Formatting.GOLD))
         )
 
         inventory.setStack(18, ItemStack(Items.ARROW).setCustomName(Text.literal("Back").formatted(Formatting.RED)))
@@ -46,7 +46,7 @@ class CrateConfigScreenHandler(
             return
         }
 
-        val crateTransformer = CrateTransformer(crateConfig!!, player!!)
+        val crateTransformer = CrateTransformer(crateConfig!!.crateName, player!!)
         if (slotIndex == 18) {
             player?.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, _, p ->
                 CrateListScreenHandler(syncId, p)
@@ -58,7 +58,7 @@ class CrateConfigScreenHandler(
         }
 
         if (slotIndex == 13) {
-            crateTransformer.giveKey()
+            crateTransformer.giveKey(1, player)
         }
     }
 

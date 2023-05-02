@@ -61,6 +61,9 @@ object PebblesCrate : ModInitializer {
                 return@UseBlockCallback ActionResult.PASS
             }
 
+            val crateDataManager = CrateDataManager()
+            val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
+
             // Check if the clicked position is in the crate data
             if (hitResult.blockPos in savedCrateData) {
                 val crateName = savedCrateData[hitResult.blockPos]

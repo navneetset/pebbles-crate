@@ -7,6 +7,7 @@ import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.suggestion.Suggestions
 import com.mojang.brigadier.suggestion.SuggestionsBuilder
 import net.minecraft.command.CommandSource
+import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 import net.minecraft.nbt.NbtList
@@ -19,39 +20,39 @@ import net.minecraft.util.registry.Registry
 import tech.sethi.pebbles.crates.screenhandlers.PrizeDisplayScreenHandlerFactory
 import tech.sethi.pebbles.crates.lootcrates.CrateConfig
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
+import tech.sethi.pebbles.crates.lootcrates.CrateTransformer
 import tech.sethi.pebbles.crates.util.ParseableMessage
 import java.util.concurrent.CompletableFuture
 
 class GetCrateCommand {
+
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         dispatcher.register(CommandManager.literal("padmin")
             .requires { it.hasPermissionLevel(2) } // Require OP permission level
             .then(
                 CommandManager.literal("crate").then(
                     CommandManager.literal("get").then(
-                        CommandManager.argument("crateName", StringArgumentType.string())
+                        CommandManager.argument("crateName", StringArgumentType.greedyString())
                             .suggests { context, builder -> getCrateNameSuggestions(context, builder) }
                             .executes { context -> getCrate(context) },
                     ),
                 ).then(
                     CommandManager.literal("givekey").then(
-                        CommandManager.argument("crateName", StringArgumentType.string())
-                            .suggests { context, builder -> getCrateNameSuggestions(context, builder) }.then(
                                 CommandManager.argument("player", StringArgumentType.string())
                                     .suggests { context, builder ->
                                         CommandSource.suggestMatching(
                                             context.source.server.playerManager.playerList.map { it.name.string },
                                             builder
                                         )
-                                    }.then(
-                                        CommandManager.argument("amount", IntegerArgumentType.integer(1))
-                                            .executes { context -> giveCrateKey(context) },
-                                    ).executes { context -> giveCrateKey(context) },
+                                    }.then(CommandManager.argument("amount", IntegerArgumentType.integer(1))
+                                        .then(CommandManager.argument("crateName", StringArgumentType.greedyString())
+                                            .suggests { context, builder -> getCrateNameSuggestions(context, builder) }
+                                            .executes { context -> giveCrateKey(context) })
+                                    )
                             ),
                     ),
                 ),
             )
-        )
     }
 
     private fun getCrateNameSuggestions(
@@ -63,82 +64,66 @@ class GetCrateCommand {
     }
 
     private fun getCrate(context: CommandContext<ServerCommandSource>): Int {
-        val crateConfigManager = CrateConfigManager()
+
         val crateName = StringArgumentType.getString(context, "crateName")
-        val crateConfig = crateConfigManager.getCrateConfig(crateName)
+        val crateTransformer = CrateTransformer(crateName, context.source.player as PlayerEntity)
 
-        if (crateConfig != null) {
-            val player = context.source.player
-            if (player != null) {
-                val crateItemStack = ItemStack(Items.PAPER)
-                crateItemStack.setCustomName(Text.literal(crateName))
-
-                //get all prize.names and add them to the lore
-                val prizeLore = crateConfig.prize.map { Text.literal(it.name) }
-                setLore(crateItemStack, prizeLore)
-
-                val nbt = crateItemStack.orCreateNbt
-                nbt.putString("CrateName", crateName)
-                crateItemStack.nbt = nbt
-
-                player.sendMessage(Text.literal("Giving $crateName to ${player.name.string}"), false)
-
-                player.giveItemStack(crateItemStack)
-                context.source.sendFeedback(
-                    Text.literal("Successfully gave $crateName to ${player.name.string}"), false
-                )
-                val message = "Successfully gave $crateName to ${player.name.string}"
-                ParseableMessage(message, player, "placeholder").send()
-                return 1
-            }
-        } else {
-            context.source.sendError(Text.literal("Crate with name $crateName not found"))
-            return -1
-        }
+        crateTransformer.giveTransformer()
         return 1
     }
 
 
     private fun giveCrateKey(context: CommandContext<ServerCommandSource>): Int {
+
+        val crateName = StringArgumentType.getString(context, "crateName")
+        val crateTransformer = CrateTransformer(crateName, context.source.player as PlayerEntity)
+
         val playerName = StringArgumentType.getString(context, "player")
         val player = context.source.server.playerManager.getPlayer(playerName)
-        val source = context.source
-        val crateName = StringArgumentType.getString(context, "crateName")
-        val crateConfigManager = CrateConfigManager()
-        val crateConfig = crateConfigManager.getCrateConfig(crateName) ?: return -1
-        if (player != null) {
-            val materialIdentifier = Identifier.tryParse(crateConfig.crateKey.material)
-            if (materialIdentifier != null) {
-                val amount = IntegerArgumentType.getInteger(context, "amount")
 
-                val item = Registry.ITEM.get(materialIdentifier)
-                if (item != Items.AIR) {
-                    val crateKeyItemStack = ItemStack(item, amount)
-                    val parsedName =
-                        ParseableMessage(crateConfig.crateKey.name, player, "placeholder").returnMessageAsStyledText()
+        val amount = IntegerArgumentType.getInteger(context, "amount")
 
-                    crateKeyItemStack.setCustomName(parsedName)
+        crateTransformer.giveKey(amount, player as PlayerEntity)
 
-                    // Set the lore for the crate key item
-                    val crateKeyLore = crateConfig.crateKey.lore
-                    val parsedCrateKeyLore = crateKeyLore.map {
-                        ParseableMessage(it, player, "placeholder").returnMessageAsStyledText()
-                    }
-                    setLore(crateKeyItemStack, parsedCrateKeyLore)
-
-                    val nbt = crateKeyItemStack.orCreateNbt
-                    nbt.putString("CrateName", crateConfig.crateName)
-
-                    player.giveItemStack(crateKeyItemStack)
-
-                    source.sendFeedback(
-                        Text.literal("Successfully gave ${crateConfig.crateKey.name} to ${player.name.string}"), false
-                    )
-                    val message = "You received a ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
-                    ParseableMessage(message, player, "placeholder").send()
-                }
-            }
-        }
+//        val playerName = StringArgumentType.getString(context, "player")
+//        val player = context.source.server.playerManager.getPlayer(playerName)
+//        val source = context.source
+//        val crateName = StringArgumentType.getString(context, "crateName")
+//        val crateConfigManager = CrateConfigManager()
+//        val crateConfig = crateConfigManager.getCrateConfig(crateName) ?: return -1
+//        if (player != null) {
+//            val materialIdentifier = Identifier.tryParse(crateConfig.crateKey.material)
+//            if (materialIdentifier != null) {
+//                val amount = IntegerArgumentType.getInteger(context, "amount")
+//
+//                val item = Registry.ITEM.get(materialIdentifier)
+//                if (item != Items.AIR) {
+//                    val crateKeyItemStack = ItemStack(item, amount)
+//                    val parsedName =
+//                        ParseableMessage(crateConfig.crateKey.name, player, "placeholder").returnMessageAsStyledText()
+//
+//                    crateKeyItemStack.setCustomName(parsedName)
+//
+//                    // Set the lore for the crate key item
+//                    val crateKeyLore = crateConfig.crateKey.lore
+//                    val parsedCrateKeyLore = crateKeyLore.map {
+//                        ParseableMessage(it, player, "placeholder").returnMessageAsStyledText()
+//                    }
+//                    setLore(crateKeyItemStack, parsedCrateKeyLore)
+//
+//                    val nbt = crateKeyItemStack.orCreateNbt
+//                    nbt.putString("CrateName", crateConfig.crateName)
+//
+//                    player.giveItemStack(crateKeyItemStack)
+//
+//                    source.sendFeedback(
+//                        Text.literal("Successfully gave ${crateConfig.crateKey.name} to ${player.name.string}"), false
+//                    )
+//                    val message = "You received a ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
+//                    ParseableMessage(message, player, "placeholder").send()
+//                }
+//            }
+//        }
         return 1
     }
 

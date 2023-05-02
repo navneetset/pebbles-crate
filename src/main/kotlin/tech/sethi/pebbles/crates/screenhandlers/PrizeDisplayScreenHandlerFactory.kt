@@ -17,6 +17,7 @@ import net.minecraft.util.Identifier
 import net.minecraft.util.registry.Registry
 import tech.sethi.pebbles.crates.lootcrates.CrateConfig
 import tech.sethi.pebbles.crates.lootcrates.Prize
+import tech.sethi.pebbles.crates.util.ParseableMessage
 import tech.sethi.pebbles.crates.util.ParseableName
 import tech.sethi.pebbles.crates.util.setLore
 
@@ -57,7 +58,7 @@ class PrizeDisplayScreenHandlerFactory(private val title: Text, private val crat
 }
 
 
-class CrateInventory(private val crateItems: List<Prize>, private var currentPage: Int) : SimpleInventory(54) {
+class CrateInventory(crateItems: List<Prize>, currentPage: Int) : SimpleInventory(54) {
     init {
         populateInventory(crateItems, currentPage)
     }
@@ -82,7 +83,18 @@ class CrateInventory(private val crateItems: List<Prize>, private var currentPag
                 itemStack.nbt = nbt
             }
 
-            setLore(itemStack, listOf(Text.of("Chance: ${roundedChance}%")))
+            if (prize.lore != null) {
+                val lore = prize.lore
+                val parsedPrizeLore = lore.map {
+                    val message = it.replace("{chance}", roundedChance)
+                    message.replace("{prize_name}", roundedChance)
+                    ParseableMessage(message, prizeName = "placeholder").returnMessageAsStyledText()
+                }
+                setLore(itemStack, parsedPrizeLore)
+            } else {
+                setLore(itemStack, listOf(Text.of("Chance: ${roundedChance}%")))
+            }
+
             setStack(index - startIndex, itemStack.setCustomName(parsedName))
         }
 
@@ -93,11 +105,14 @@ class CrateInventory(private val crateItems: List<Prize>, private var currentPag
 
         val pageText = Text.of("Page ${currentPage + 1} of ${((crateItems.size - 1) / 45) + 1}")
 
-        // Set the page text
-        setStack(52, ItemStack(Items.PAPER).apply { setCustomName(pageText) })
+        if (crateItems.size > 45) {
 
-        // Set the navigation arrows
-        setStack(45, ItemStack(Items.ARROW).apply { setCustomName(Text.of("Previous")) })
-        setStack(53, ItemStack(Items.ARROW).apply { setCustomName(Text.of("Next")) })
+            // Set the page text
+            setStack(52, ItemStack(Items.PAPER).apply { setCustomName(pageText) })
+
+            // Set the navigation arrows
+            setStack(45, ItemStack(Items.ARROW).apply { setCustomName(Text.of("Previous")) })
+            setStack(53, ItemStack(Items.ARROW).apply { setCustomName(Text.of("Next")) })
+        }
     }
 }

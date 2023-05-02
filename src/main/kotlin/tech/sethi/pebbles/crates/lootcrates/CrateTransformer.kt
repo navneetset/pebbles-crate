@@ -4,6 +4,8 @@ import com.mojang.brigadier.arguments.IntegerArgumentType
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
+import net.minecraft.nbt.NbtCompound
+import net.minecraft.nbt.NbtHelper
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Text
 import net.minecraft.util.Formatting
@@ -12,9 +14,9 @@ import net.minecraft.util.registry.Registry
 import tech.sethi.pebbles.crates.util.ParseableMessage
 import tech.sethi.pebbles.crates.util.setLore
 
-class CrateTransformer(val crateConfig: CrateConfig, player: PlayerEntity) {
+class CrateTransformer(val crateName: String, player: PlayerEntity) {
 
-    val crateName = crateConfig.crateName
+    val crateConfig = CrateConfigManager().getCrateConfig(crateName)
     val player = player
 
     private val crateItemStack = ItemStack(Items.PAPER)
@@ -39,18 +41,25 @@ class CrateTransformer(val crateConfig: CrateConfig, player: PlayerEntity) {
         ParseableMessage(message, player as ServerPlayerEntity, "placeholder").send()
     }
 
-    fun giveKey() {
-        val materialIdentifier = Identifier.tryParse(crateConfig.crateKey.material)
+    fun giveKey(amount: Int = 1, admin: PlayerEntity) {
+        val materialIdentifier = Identifier.tryParse(crateConfig!!.crateKey.material)
         if (materialIdentifier != null) {
             val item = Registry.ITEM.get(materialIdentifier)
             if (item != Items.AIR) {
-                val crateKeyItemStack = ItemStack(item)
+                val crateKeyItemStack = ItemStack(item, amount)
                 val parsedName = ParseableMessage(
                     crateConfig.crateKey.name, player as ServerPlayerEntity, "placeholder"
                 ).returnMessageAsStyledText()
 
-                crateKeyItemStack.setCustomName(parsedName)
+                if (crateConfig.crateKey.nbt != null) {
+                    val nbt: NbtCompound = NbtHelper.fromNbtProviderString(crateConfig.crateKey.nbt)
+                    crateKeyItemStack.nbt = nbt
+                }
 
+                val nbt = crateKeyItemStack.orCreateNbt
+                nbt.putString("CrateName", crateConfig.crateName)
+
+                crateKeyItemStack.setCustomName(parsedName)
                 // Set the lore for the crate key item
                 val crateKeyLore = crateConfig.crateKey.lore
                 val parsedCrateKeyLore = crateKeyLore.map {
@@ -58,12 +67,11 @@ class CrateTransformer(val crateConfig: CrateConfig, player: PlayerEntity) {
                 }
                 setLore(crateKeyItemStack, parsedCrateKeyLore)
 
-                val nbt = crateKeyItemStack.orCreateNbt
-                nbt.putString("CrateName", crateConfig.crateName)
-
                 player.giveItemStack(crateKeyItemStack)
 
-                val message = "You received a ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
+                val message = "You received $amount ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
+                val adminMessage = "${player.name.string} received $amount ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
+                ParseableMessage(message, admin as ServerPlayerEntity, "placeholder").send()
                 ParseableMessage(message, player, "placeholder").send()
             }
         }

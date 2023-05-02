@@ -67,7 +67,7 @@ data class CrateConfig(
 )
 
 data class CrateKey(
-    val material: String, val name: String, val lore: List<String>
+    val material: String, val name: String, val nbt: String?, val lore: List<String>
 )
 
 data class Prize(
@@ -78,5 +78,6 @@ data class Prize(
     val commands: List<String>,
     val broadcast: String,
     val messageToOpener: String,
+    val lore: List<String>?,
     val chance: Int
 )

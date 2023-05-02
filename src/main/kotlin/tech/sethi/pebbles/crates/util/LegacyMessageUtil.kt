@@ -34,18 +34,18 @@ fun parseMessageWithStyles(text: String, prizeName: String): Component {
 
 class ParseableMessage(
     private val message: String,
-    private val player: ServerPlayerEntity,
+    private val player : ServerPlayerEntity? = null,
     private val prizeName: String,
 ) {
     fun sendToAll() {
         val component = parseMessageWithStyles(message, prizeName)
-        val serverAudiences = FabricServerAudiences.of(player.server)
+        val serverAudiences = FabricServerAudiences.of(player!!.server)
         serverAudiences.all().sendMessage(component)
     }
 
     fun send() {
         val component = parseMessageWithStyles(message, prizeName)
-        val serverAudiences = FabricServerAudiences.of(player.server)
+        val serverAudiences = FabricServerAudiences.of(player!!.server)
         serverAudiences.player(player.uuid).sendMessage(component)
     }
 

@@ -66,8 +66,12 @@ class CrateEventHandler(
             var broadcast = prize.broadcast.replace("{prize_name}", prize.name)
             broadcast = broadcast.replace("{player_name}", player.entityName)
             broadcast = broadcast.replace("{crate_name}", crateName)
-            ParseableMessage(message, player, prize.name).send()
-            ParseableMessage(broadcast, player, prize.name).sendToAll()
+            if (broadcast != "") {
+                ParseableMessage(broadcast, player, prize.name).sendToAll()
+            }
+            if (message != "") {
+                ParseableMessage(message, player, prize.name).send()
+            }
         }
     }
 
