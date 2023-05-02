@@ -3,16 +3,15 @@
   "id": "pebbles-crates",
   "version": "${version}",
   "name": "Pebble's Crates",
-  "description": "This is an example description! Tell everyone what your mod is about!",
+  "description": "Lootcrate mod for your lootcrate needs!",
   "authors": [
-    "Me!"
+    "navneetset"
   ],
   "contact": {
-    "homepage": "https://fabricmc.net/",
-    "sources": "https://github.com/FabricMC/fabric-example-mod"
+    "sources": "https://github.com/navneetset/pebbles-crate"
   },
   "license": "CC0-1.0",
-  "icon": "assets/pebbles-crates/icon.png",
+  "icon": "assets/pebbles-crates/icon.webp",
   "environment": "*",
   "entrypoints": {
     "main": [

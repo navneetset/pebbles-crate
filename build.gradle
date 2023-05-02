@@ -47,6 +47,8 @@ dependencies {
 
     include 'net.kyori:adventure-platform-fabric:5.5.1'
     include 'net.kyori:adventure-text-serializer-legacy:4.13.1'
+
+    compileOnly 'net.luckperms:api:5.4'
 }
 
 processResources {

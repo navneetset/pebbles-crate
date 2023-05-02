@@ -1,6 +1,5 @@
 package tech.sethi.pebbles.crates.screenhandlers.admin.crateconfig
 
-import com.mojang.brigadier.arguments.StringArgumentType
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
 import net.minecraft.item.ItemStack
@@ -11,7 +10,6 @@ import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.text.Text
 import net.minecraft.util.Formatting
-import tech.sethi.pebbles.crates.commands.GetCrateCommand
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateTransformer
 import tech.sethi.pebbles.crates.screenhandlers.admin.cratelist.CrateListScreenHandler
@@ -48,7 +46,7 @@ class CrateConfigScreenHandler(
 
         val crateTransformer = CrateTransformer(crateConfig!!.crateName, player!!)
         if (slotIndex == 18) {
-            player?.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, _, p ->
+            player.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, _, p ->
                 CrateListScreenHandler(syncId, p)
             }, Text.literal("Crate Management")))
         }

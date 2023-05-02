@@ -17,7 +17,6 @@ import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3d
 import net.minecraft.util.registry.Registry
 import org.slf4j.LoggerFactory
-import tech.sethi.pebbles.crates.commands.GetCrateCommand
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
 import tech.sethi.pebbles.crates.lootcrates.CrateEventHandler
@@ -40,21 +39,11 @@ object PebblesCrate : ModInitializer {
     override fun onInitialize() {
         logger.info("Initializing Pebbles Loot Crates!")
 
-        val getCrateCommand = GetCrateCommand()
-
         TickHandler()
 
         CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
             CrateCommand.register(dispatcher)
         }
-
-        CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
-            getCrateCommand.register(dispatcher)
-        }
-
-        // Load the saved crate data
-        val crateDataManager = CrateDataManager()
-        val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
 
         UseBlockCallback.EVENT.register(UseBlockCallback { player, world, hand, hitResult ->
             if (world.isClient || hand != net.minecraft.util.Hand.MAIN_HAND) {
@@ -146,7 +135,7 @@ object PebblesCrate : ModInitializer {
         })
 
 
-        PlayerBlockBreakEvents.AFTER.register(PlayerBlockBreakEvents.After { _, player, pos, state, _ ->
+        PlayerBlockBreakEvents.AFTER.register(PlayerBlockBreakEvents.After { _, player, pos, _, _ ->
             // Load the saved crate data
             val crateDataManager = CrateDataManager()
             val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
