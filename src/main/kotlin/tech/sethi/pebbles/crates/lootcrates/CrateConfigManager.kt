@@ -74,7 +74,7 @@ data class Prize(
     val name: String,
     val material: String,
     val amount: Int,
-    val nbt: String?,
+    val nbt: String? = null,
     val commands: List<String>,
     val broadcast: String,
     val messageToOpener: String,

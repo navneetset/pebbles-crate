@@ -24,13 +24,13 @@ object CrateCommand {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         val padminCommand = literal("padmin").requires { source ->
             val player = source.player as? PlayerEntity
-            player != null && (source.hasPermissionLevel(2) || isLuckPermsPresent() && getLuckPermsApi()?.userManager?.getUser(player.uuid)!!.cachedData.permissionData.checkPermission("pebbles.admin.crate").asBoolean())
+            player != null && (source.hasPermissionLevel(2) || isLuckPermsPresent() && getLuckPermsApi()?.userManager?.getUser(player.uuid)!!.cachedData.permissionData.checkPermission("pebbles.admin.crate").asBoolean()) || source.entity == null
         }
 
         val crateCommand = literal("crate")
             .requires { source ->
                 val player = source.player as? PlayerEntity
-                player != null && (source.hasPermissionLevel(2) || isLuckPermsPresent() && getLuckPermsApi()?.userManager?.getUser(player.uuid)!!.cachedData.permissionData.checkPermission("pebbles.admin.crate").asBoolean())
+                player != null && (source.hasPermissionLevel(2) || isLuckPermsPresent() && getLuckPermsApi()?.userManager?.getUser(player.uuid)!!.cachedData.permissionData.checkPermission("pebbles.admin.crate").asBoolean()) || source.entity == null
             }
             .executes { context ->
                 val source = context.source
@@ -102,18 +102,22 @@ object CrateCommand {
 
 
     private fun giveCrateKey(context: CommandContext<ServerCommandSource>): Int {
-
         val crateName = StringArgumentType.getString(context, "crateName")
-        val crateTransformer = CrateTransformer(crateName, context.source.player as PlayerEntity)
 
         val playerName = StringArgumentType.getString(context, "player")
         val player = context.source.server.playerManager.getPlayer(playerName)
 
-        val amount = IntegerArgumentType.getInteger(context, "amount")
+        if (player == null) {
+            context.source.sendError(Text.of("Player not found!"))
+            return 0
+        }
 
-        crateTransformer.giveKey(amount, player as PlayerEntity)
+        val amount = IntegerArgumentType.getInteger(context, "amount")
+        CrateTransformer(crateName, player).giveKey(amount, player)
 
         return 1
     }
+
+
 
 }

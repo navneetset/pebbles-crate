@@ -1,6 +1,5 @@
 package tech.sethi.pebbles.crates.lootcrates
 
-import com.mojang.brigadier.arguments.IntegerArgumentType
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
@@ -73,6 +72,8 @@ class CrateTransformer(val crateName: String, player: PlayerEntity) {
                 val adminMessage = "${player.name.string} received $amount ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
                 ParseableMessage(adminMessage, admin as ServerPlayerEntity, "placeholder").send()
                 ParseableMessage(message, player, "placeholder").send()
+
+                println(adminMessage)
             }
         }
     }

@@ -81,8 +81,12 @@ class CrateEventHandler(
 
         val parsedPrize = Registry.ITEM.get(Identifier.tryParse(prize.material))
         val itemStack = ItemStack(parsedPrize)
-        val nbt: NbtCompound = NbtHelper.fromNbtProviderString(prize.nbt)
-        itemStack.nbt = nbt
+
+        if (prize.nbt?.isNotBlank() == true) {
+            val nbt: NbtCompound = NbtHelper.fromNbtProviderString(prize.nbt)
+            itemStack.nbt = nbt
+        }
+
         itemStack.setCustomName(Text.of(prize.name))
 
         var height = pos.y.toDouble()
@@ -92,7 +96,6 @@ class CrateEventHandler(
         }
         val spawnPos = Vec3d(pos.x + 0.5, height + 1, pos.z + 0.5)
 
-
         val floatingPrizeItemEntity = FloatingPrizeItemEntity(world, spawnPos.x, spawnPos.y, spawnPos.z, itemStack)
         world.spawnEntity(floatingPrizeItemEntity)
 
@@ -101,6 +104,8 @@ class CrateEventHandler(
             lastFloatingPrizeItemEntity = floatingPrizeItemEntity
         }
     }
+
+
 
 
     fun showPrizesAnimation(finalPrize: Prize) {
