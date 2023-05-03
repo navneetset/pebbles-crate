@@ -15,9 +15,12 @@ For all admin commands, if you have LuckPerm installed, the following is require
 `/padmin givekey <player> <amount> <cratename>` Gives cratekey to a specific player <br>
 
 ## How to use?
+Come and try out the crate in a server running Cobblemon: **dynastymc.org**
+
 After installing the mod, you may navigate to your `/config/pebbles-crate/crates`then create a file, for example `example.json`
 <br>
 You may use the follow example as reference for the structure: <br>
+
 ```
 {
   "crateName": "Vanilla Items Crate",
