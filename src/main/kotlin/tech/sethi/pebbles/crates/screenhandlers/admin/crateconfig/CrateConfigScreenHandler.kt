@@ -1,5 +1,6 @@
 package tech.sethi.pebbles.crates.screenhandlers.admin.crateconfig
 
+import com.google.gson.GsonBuilder
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
 import net.minecraft.item.ItemStack
@@ -31,7 +32,9 @@ class CrateConfigScreenHandler(
             13, ItemStack(Items.TRIPWIRE_HOOK).setCustomName(Text.literal("Get Key").formatted(Formatting.GOLD))
         )
         inventory.setStack(
-            14, ItemStack(Items.ITEM_FRAME).setCustomName(Text.literal("Configure Prize (To be implemented)").formatted(Formatting.GOLD))
+            14, ItemStack(Items.ITEM_FRAME).setCustomName(
+                Text.literal("Configure Prize (Web Editor)").formatted(Formatting.GOLD)
+            )
         )
 
         inventory.setStack(18, ItemStack(Items.ARROW).setCustomName(Text.literal("Back").formatted(Formatting.RED)))
@@ -58,11 +61,20 @@ class CrateConfigScreenHandler(
         if (slotIndex == 13) {
             crateTransformer.giveKey(1, player)
         }
+
+        if (slotIndex == 14) {
+            val url = "https://pebblescrate.sethi.tech/"
+            val clickableLink =
+                Text.Serializer.fromJson("{\"text\":\"$url\",\"clickEvent\":{\"action\":\"open_url\",\"value\":\"$url\"}}")
+            player.sendMessage(
+                Text.literal("To edit the config on the web UI, navigate to: ").formatted(Formatting.GOLD)
+                    .append(clickableLink), false
+            )
+        }
     }
 
     override fun canUse(player: PlayerEntity): Boolean {
         return true
     }
-
 
 }

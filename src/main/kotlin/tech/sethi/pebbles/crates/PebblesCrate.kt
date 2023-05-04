@@ -39,6 +39,9 @@ object PebblesCrate : ModInitializer {
     override fun onInitialize() {
         logger.info("Initializing Pebbles Loot Crates!")
 
+        //create /config/pebbles-crate/crates if it doesn't exist
+        CrateConfigManager().createCratesFolder()
+
         TickHandler()
 
         CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->

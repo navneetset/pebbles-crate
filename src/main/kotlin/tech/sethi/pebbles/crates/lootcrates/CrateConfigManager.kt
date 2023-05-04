@@ -11,6 +11,12 @@ class CrateConfigManager {
     private val configDirectory = File("config/pebbles-crate/crates")
 
 
+    fun createCratesFolder() {
+        if (!configDirectory.exists()) {
+            configDirectory.mkdirs()
+        }
+    }
+
     init {
         loadCrateConfigs()
     }
