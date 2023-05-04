@@ -8,6 +8,8 @@ Make sure you have Fabric Language Kotlin installed!
 If you would like to migrate from AdvancedCrates to Pebble's Crate, this will help speed things up a little: <br>
 https://pebblescrate.sethi.tech/
 
+Modrinth Project Page: https://modrinth.com/mod/pebbles-crate
+
 ## Permissions
 For all admin commands, if you have LuckPerm installed, the following is required:<br>
 `pebbles.admin.crate`
