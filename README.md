@@ -83,12 +83,12 @@ You may use the follow example as reference for the structure: <br>
 ```
 Note that the mod supports legacy formatting (e.g. &#63BC5D, &4, &f, &r) as demonstrated in the example.
 ## Supporters
-Thanks to these kind folks from Cobblemon Server discord commissioning this free mod:
-**Fiddy**: Souls Network
-**Cube**: PokeCubed
-**Ghoul/Rain**: Poke Meadows
-**Ojcastillo29**: Treasure Network
-**Frosteffects**: Lunar Legends
+Thanks to these kind folks from Cobblemon Server discord commissioning this free mod:<br> 
+**Fiddy**: Souls Network<br>
+**Cube**: PokeCubed<br>
+**Ghoul/Rain**: Poke Meadows<br>
+**Ojcastillo29**: Treasure Network<br>
+**Frosteffects**: Lunar Legends<br>
 
 ## Todo
 - Global customisable options (UI elements such as arrow for next/previous)
