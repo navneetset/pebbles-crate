@@ -35,7 +35,7 @@ class CrateEventHandler(
     private val crateName: String
 ) {
     companion object {
-        const val COOLDOWN_TIME = 5000L
+        const val COOLDOWN_TIME = 8000L
     }
 
     private var lastFloatingPrizeItemEntity: FloatingPrizeItemEntity? = null
@@ -124,7 +124,7 @@ class CrateEventHandler(
 
             cratesInUse.add(pos)
 
-            val animationPrizesCount = 5
+            val animationPrizesCount = 10
             val delayBetweenPrizes = 6L // 300 milliseconds converted to ticks
 
             for (i in 0 until animationPrizesCount) {
@@ -151,7 +151,7 @@ class CrateEventHandler(
                 }
             }
 
-            val removeCrateDelay = finalPrizeDelay + 30 // 1500 milliseconds converted to ticks
+            val removeCrateDelay = finalPrizeDelay + 100 // 5 seconds converted to ticks
             addTask(world, removeCrateDelay) { cratesInUse.remove(pos) }
         }
     }

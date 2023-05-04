@@ -118,7 +118,9 @@ object PebblesCrate : ModInitializer {
             } else {
                 // Assign a new crate if the player is holding a named paper
                 val heldStack = player.mainHandStack
-                if (heldStack.item == Items.PAPER && heldStack.hasCustomName()) {
+                if (heldStack.item == Items.PAPER && heldStack.hasCustomName() && heldStack.hasNbt() && heldStack.nbt!!.contains(
+                        "CrateName"
+                    )) {
                     val crateName = heldStack.nbt!!.getString("CrateName")
                     savedCrateData[hitResult.blockPos] = crateName
                     crateDataManager.saveCrateData(savedCrateData)
