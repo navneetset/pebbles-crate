@@ -62,15 +62,18 @@ class CrateEventHandler(
             CrateParticles.rewardParticles(player, pos)
 
             revealPrize(prize, isFinalPrize = true)
-            val message = prize.messageToOpener.replace("{prize_name}", prize.name)
-            var broadcast = prize.broadcast.replace("{prize_name}", prize.name)
-            broadcast = broadcast.replace("{player_name}", player.entityName)
-            broadcast = broadcast.replace("{crate_name}", crateName)
-            if (broadcast != "") {
-                ParseableMessage(broadcast, player, prize.name).sendToAll()
-            }
-            if (message != "") {
+            if (prize.messageToOpener != null && prize.messageToOpener != "") {
+                val message = prize.messageToOpener.replace("{prize_name}", prize.name)
                 ParseableMessage(message, player, prize.name).send()
+            }
+
+            if (prize.broadcast != null && prize.messageToOpener != "") {
+                var broadcast = prize.broadcast.replace("{prize_name}", prize.name)
+                broadcast = broadcast.replace("{player_name}", player.entityName)
+                broadcast = broadcast.replace("{crate_name}", crateName)
+                if (broadcast != "") {
+                    ParseableMessage(broadcast, player, prize.name).sendToAll()
+                }
             }
         }
     }
@@ -160,7 +163,7 @@ class CrateEventHandler(
     private fun showRandomPrizeRunnable(prize: Prize) = Runnable {
         revealPrize(prize, false)
         world.playSound(
-            null as ServerPlayerEntity?, pos, SoundEvents.BLOCK_NOTE_BLOCK_BANJO, SoundCategory.BLOCKS, 1.0f, 1.0f
+            null as ServerPlayerEntity?, pos, SoundEvents.BLOCK_NOTE_BLOCK_BANJO, SoundCategory.BLOCKS, 0.5f, 1.0f
         )
     }
 

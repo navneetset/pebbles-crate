@@ -82,8 +82,8 @@ data class Prize(
     val amount: Int,
     val nbt: String? = null,
     val commands: List<String>,
-    val broadcast: String,
-    val messageToOpener: String,
+    val broadcast: String? = null,
+    val messageToOpener: String? = null,
     val lore: List<String>?,
     val chance: Int
 )

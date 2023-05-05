@@ -72,7 +72,7 @@ class CrateInventory(crateItems: List<Prize>, currentPage: Int) : SimpleInventor
         val totalWeight = crateItems.sumOf { it.chance }
         for (index in startIndex until endIndex) {
             val prize = crateItems[index]
-            val itemStack = ItemStack(Registry.ITEM.get(Identifier.tryParse(prize.material)))
+            val itemStack = ItemStack(Registry.ITEM.get(Identifier.tryParse(prize.material)), prize.amount)
             val parsedName = ParseableName(prize.name).returnMessageAsStyledText()
 
             val chance = prize.chance.toDouble() / totalWeight.toDouble() * 100

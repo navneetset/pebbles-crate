@@ -63,7 +63,7 @@ object CrateParticles {
                 null as ServerPlayerEntity?, pos, SoundEvents.ENTITY_ALLAY_DEATH, SoundCategory.BLOCKS, 0.5f, 0.5f
             )
             world.playSound(
-                null as ServerPlayerEntity?, pos, SoundEvents.BLOCK_NOTE_BLOCK_BELL, SoundCategory.BLOCKS, 1f, 1f
+                null as ServerPlayerEntity?, pos, SoundEvents.BLOCK_NOTE_BLOCK_BELL, SoundCategory.BLOCKS, 0.5f, 1f
             )
         }
 
@@ -81,7 +81,7 @@ object CrateParticles {
             0.0f,
             0.0f,
             0.1f,
-            100
+            50
         )
         player.networkHandler.sendPacket(particlePacket)
 

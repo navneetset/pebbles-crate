@@ -9,10 +9,7 @@ import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.text.Text
-import net.minecraft.util.Formatting
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
-import tech.sethi.pebbles.crates.screenhandlers.admin.CrateNameScreenHandler
-import tech.sethi.pebbles.crates.screenhandlers.admin.PreviewIconScreenHandler
 import tech.sethi.pebbles.crates.screenhandlers.admin.crateconfig.CrateConfigScreenHandler
 import tech.sethi.pebbles.crates.util.ParseableName
 
