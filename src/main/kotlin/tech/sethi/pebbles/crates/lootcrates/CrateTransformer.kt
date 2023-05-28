@@ -69,11 +69,7 @@ class CrateTransformer(val crateName: String, player: PlayerEntity) {
                 player.giveItemStack(crateKeyItemStack)
 
                 val message = "You received $amount ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
-                val adminMessage = "${player.name.string} received $amount ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
-                ParseableMessage(adminMessage, admin as ServerPlayerEntity, "placeholder").send()
                 ParseableMessage(message, player, "placeholder").send()
-
-                println(adminMessage)
             }
         }
     }

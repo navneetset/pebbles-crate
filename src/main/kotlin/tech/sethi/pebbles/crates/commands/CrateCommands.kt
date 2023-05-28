@@ -9,6 +9,7 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder
 import net.luckperms.api.LuckPerms
 import net.luckperms.api.LuckPermsProvider
 import net.minecraft.command.CommandSource
+import net.minecraft.command.argument.EntityArgumentType
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory
@@ -17,31 +18,36 @@ import net.minecraft.text.Text
 import net.minecraft.server.command.CommandManager.literal
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateTransformer
+import tech.sethi.pebbles.crates.screenhandlers.admin.cratelist.ActiveCrateList
 import tech.sethi.pebbles.crates.screenhandlers.admin.cratelist.CrateListScreenHandler
+import tech.sethi.pebbles.crates.util.ParseableMessage
 import java.util.concurrent.CompletableFuture
 
 object CrateCommand {
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         val padminCommand = literal("padmin").requires { source ->
             val player = source.player as? PlayerEntity
-            player != null && (source.hasPermissionLevel(2) || isLuckPermsPresent() && getLuckPermsApi()?.userManager?.getUser(player.uuid)!!.cachedData.permissionData.checkPermission("pebbles.admin.crate").asBoolean()) || source.entity == null
+            player != null && (source.hasPermissionLevel(2) || isLuckPermsPresent() && getLuckPermsApi()?.userManager?.getUser(
+                player.uuid
+            )!!.cachedData.permissionData.checkPermission("pebbles.admin.crate").asBoolean()) || source.entity == null
         }
 
-        val crateCommand = literal("crate")
-            .requires { source ->
-                val player = source.player as? PlayerEntity
-                player != null && (source.hasPermissionLevel(2) || isLuckPermsPresent() && getLuckPermsApi()?.userManager?.getUser(player.uuid)!!.cachedData.permissionData.checkPermission("pebbles.admin.crate").asBoolean()) || source.entity == null
-            }
-            .executes { context ->
-                val source = context.source
+        val crateCommand = literal("crate").requires { source ->
+            val player = source.player as? PlayerEntity
+            player != null && (source.hasPermissionLevel(2) || isLuckPermsPresent() && getLuckPermsApi()?.userManager?.getUser(
+                player.uuid
+            )!!.cachedData.permissionData.checkPermission("pebbles.admin.crate")
+                .asBoolean()) || source.entity == null
+        }.executes { context ->
+            val source = context.source
 
-                // Open the crate UI
-                source.player?.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, _, p ->
-                    CrateListScreenHandler(syncId, p)
-                }, Text.literal("Crate Management")))
+            // Open the crate UI
+            source.player?.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, _, p ->
+                CrateListScreenHandler(syncId, p)
+            }, Text.literal("Crate Management")))
 
-                1
-            }
+            1
+        }
 
         val getCrateCommand = literal("getcrate").then(
             CommandManager.argument("crateName", StringArgumentType.greedyString())
@@ -50,22 +56,31 @@ object CrateCommand {
         )
 
         val giveKeyCommand = literal("givekey").then(
-            CommandManager.argument("player", StringArgumentType.string())
-                .suggests { context, builder ->
-                    CommandSource.suggestMatching(
-                        context.source.server.playerManager.playerList.map { it.name.string },
-                        builder
-                    )
-                }.then(CommandManager.argument("amount", IntegerArgumentType.integer(1))
+            CommandManager.argument("player", EntityArgumentType.players()).then(
+                CommandManager.argument("amount", IntegerArgumentType.integer(1))
                     .then(CommandManager.argument("crateName", StringArgumentType.greedyString())
                         .suggests { context, builder -> getCrateNameSuggestions(context, builder) }
                         .executes { context -> giveCrateKey(context) })
-                )
+            )
         )
 
+
+        val activeCrateConfigCommand = literal("activecrates").executes { context ->
+            val source = context.source
+
+            source.player?.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, _, p ->
+                ActiveCrateList(syncId, p)
+            }, Text.literal("Blacklist Particles")))
+
+            1
+        }
+
         // Register the commands
-        dispatcher.register(padminCommand.then(crateCommand).then(getCrateCommand).then(giveKeyCommand))
+        dispatcher.register(
+            padminCommand.then(crateCommand).then(getCrateCommand).then(giveKeyCommand).then(activeCrateConfigCommand)
+        )
     }
+
     private fun isLuckPermsPresent(): Boolean {
         return try {
             Class.forName("net.luckperms.api.LuckPerms")
@@ -103,21 +118,19 @@ object CrateCommand {
 
     private fun giveCrateKey(context: CommandContext<ServerCommandSource>): Int {
         val crateName = StringArgumentType.getString(context, "crateName")
-
-        val playerName = StringArgumentType.getString(context, "player")
-        val player = context.source.server.playerManager.getPlayer(playerName)
-
-        if (player == null) {
-            context.source.sendError(Text.of("Player not found!"))
-            return 0
-        }
-
         val amount = IntegerArgumentType.getInteger(context, "amount")
-        CrateTransformer(crateName, player).giveKey(amount, player)
+
+        val players = EntityArgumentType.getPlayers(context, "player")
+        for (player in players) {
+            CrateTransformer(crateName, player).giveKey(amount, player)
+            val adminMessage = "${player.name.string} received $amount $crateName keys!"
+
+            ParseableMessage(adminMessage, context.source.player, "placeholder").send()
+            println(adminMessage)
+        }
 
         return 1
     }
-
 
 
 }

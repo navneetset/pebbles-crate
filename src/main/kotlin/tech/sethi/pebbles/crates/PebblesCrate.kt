@@ -17,6 +17,7 @@ import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3d
 import net.minecraft.util.registry.Registry
 import org.slf4j.LoggerFactory
+import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
 import tech.sethi.pebbles.crates.lootcrates.CrateEventHandler
@@ -171,14 +172,19 @@ object PebblesCrate : ModInitializer {
     private fun spawnParticlesForAllCrates(world: ServerWorld) {
         val crateDataManager = CrateDataManager()
         val savedCrateData = crateDataManager.loadCrateData()
+        val blacklist = BlacklistConfigManager().getBlacklist()
 
         for (pos in savedCrateData.keys) {
+            // Skip crates in the blacklist
+            if (pos in blacklist) continue
+
             val playersNearby = world.getPlayersByDistance(pos, 32.0) // Only get players within 32 blocks of the chest
             for (player in playersNearby) {
                 CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
             }
         }
     }
+
 
 
     private fun ServerWorld.getPlayersByDistance(pos: BlockPos, distance: Double): List<ServerPlayerEntity> {
