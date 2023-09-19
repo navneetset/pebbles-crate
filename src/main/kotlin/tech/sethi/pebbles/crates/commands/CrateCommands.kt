@@ -125,8 +125,13 @@ object CrateCommand {
             CrateTransformer(crateName, player).giveKey(amount, player)
             val adminMessage = "${player.name.string} received $amount $crateName keys!"
 
-            ParseableMessage(adminMessage, context.source.player, "placeholder").send()
+            if (context.source.player != null) {
+                ParseableMessage(adminMessage, context.source.player, "placeholder").send()
+                println(adminMessage)
+            }
+
             println(adminMessage)
+
         }
 
         return 1
