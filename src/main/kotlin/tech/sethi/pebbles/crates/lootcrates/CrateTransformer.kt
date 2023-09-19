@@ -5,18 +5,17 @@ import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtHelper
+import net.minecraft.registry.Registries
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Text
 import net.minecraft.util.Formatting
 import net.minecraft.util.Identifier
-import net.minecraft.util.registry.Registry
 import tech.sethi.pebbles.crates.util.ParseableMessage
 import tech.sethi.pebbles.crates.util.setLore
 
-class CrateTransformer(val crateName: String, player: PlayerEntity) {
+class CrateTransformer(val crateName: String, val player: PlayerEntity) {
 
     val crateConfig = CrateConfigManager().getCrateConfig(crateName)
-    val player = player
 
     private val crateItemStack = ItemStack(Items.PAPER)
 
@@ -43,7 +42,7 @@ class CrateTransformer(val crateName: String, player: PlayerEntity) {
     fun giveKey(amount: Int = 1, admin: PlayerEntity) {
         val materialIdentifier = Identifier.tryParse(crateConfig!!.crateKey.material)
         if (materialIdentifier != null) {
-            val item = Registry.ITEM.get(materialIdentifier)
+            val item = Registries.ITEM.get(materialIdentifier)
             if (item != Items.AIR) {
                 val crateKeyItemStack = ItemStack(item, amount)
                 val parsedName = ParseableMessage(

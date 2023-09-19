@@ -26,7 +26,4 @@ class IndividualRewardEditingScreenHandler(
     override fun canUse(player: PlayerEntity): Boolean {
         return true
     }
-
-    // You'll need to handle the button clicks for adjusting the odds here.
-    // You can use onButtonClick method for handling button events or create custom widgets.
 }

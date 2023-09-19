@@ -63,7 +63,7 @@ object CrateParticles {
                 null as ServerPlayerEntity?, pos, SoundEvents.ENTITY_ALLAY_DEATH, SoundCategory.BLOCKS, 0.5f, 0.5f
             )
             world.playSound(
-                null as ServerPlayerEntity?, pos, SoundEvents.BLOCK_NOTE_BLOCK_BELL, SoundCategory.BLOCKS, 0.5f, 1f
+                null as ServerPlayerEntity?, pos, SoundEvents.BLOCK_NOTE_BLOCK_BELL.value(), SoundCategory.BLOCKS, 0.5f, 1f
             )
         }
 

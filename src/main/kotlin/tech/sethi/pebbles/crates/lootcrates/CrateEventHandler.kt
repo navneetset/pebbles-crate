@@ -4,6 +4,7 @@ import com.mojang.brigadier.ParseResults
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtHelper
+import net.minecraft.registry.Registries
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.server.world.ServerWorld
@@ -14,7 +15,6 @@ import net.minecraft.util.Formatting
 import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3d
-import net.minecraft.util.registry.Registry
 import net.minecraft.world.World
 import tech.sethi.pebbles.crates.PebblesCrate
 import tech.sethi.pebbles.crates.particles.CrateParticles
@@ -82,7 +82,7 @@ class CrateEventHandler(
         // Remove any previous floating item
         removeFloatingItem()
 
-        val parsedPrize = Registry.ITEM.get(Identifier.tryParse(prize.material))
+        val parsedPrize = Registries.ITEM.get(Identifier.tryParse(prize.material))
         val itemStack = ItemStack(parsedPrize)
 
         if (prize.nbt?.isNotBlank() == true) {
@@ -163,7 +163,7 @@ class CrateEventHandler(
     private fun showRandomPrizeRunnable(prize: Prize) = Runnable {
         revealPrize(prize, false)
         world.playSound(
-            null as ServerPlayerEntity?, pos, SoundEvents.BLOCK_NOTE_BLOCK_BANJO, SoundCategory.BLOCKS, 0.5f, 1.0f
+            null, pos, SoundEvents.BLOCK_NOTE_BLOCK_BANJO.value(), SoundCategory.BLOCKS, 0.5f, 1.0f
         )
     }
 

@@ -6,12 +6,12 @@ import net.minecraft.inventory.SimpleInventory
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtList
 import net.minecraft.nbt.NbtString
+import net.minecraft.registry.Registries
 import net.minecraft.screen.NamedScreenHandlerFactory
 import net.minecraft.screen.ScreenHandler
 import net.minecraft.screen.slot.Slot
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
-import net.minecraft.util.registry.Registry
 import tech.sethi.pebbles.crates.lootcrates.CrateConfig
 
 class CrateScreenHandlerFactory(private val crateConfig: CrateConfig) : NamedScreenHandlerFactory {
@@ -79,7 +79,7 @@ class CrateScreenHandler(
         val prizes = crateConfig.prize
         for ((index, prize) in prizes.withIndex()) {
             // Add the prize item to the inventory with its chance as lore
-            val itemStack = ItemStack(Registry.ITEM.get(Identifier.tryParse(prize.material)))
+            val itemStack = ItemStack(Registries.ITEM.get(Identifier.tryParse(prize.material)))
             setLore(itemStack, listOf(Text.of("Chance: ${prize.chance}")))
             inventory.setStack(index, itemStack)
         }
@@ -89,7 +89,7 @@ class CrateScreenHandler(
         return true
     }
 
-    override fun transferSlot(player: PlayerEntity, index: Int): ItemStack {
+    override fun quickMove(player: PlayerEntity, index: Int): ItemStack {
         return ItemStack.EMPTY
     }
 

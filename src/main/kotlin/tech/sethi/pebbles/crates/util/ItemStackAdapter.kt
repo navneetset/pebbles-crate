@@ -2,15 +2,15 @@ import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtHelper
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
-import net.minecraft.util.registry.Registry
 import com.google.gson.*
+import net.minecraft.registry.Registries
 import java.lang.reflect.Type
 
 data class ItemConfig(
     val itemId: String, val nbt: String?, val amount: Int, val displayName: String?
 ) {
     fun toItemStack(): ItemStack {
-        val item = Registry.ITEM.get(Identifier(itemId))
+        val item = Registries.ITEM.get(Identifier(itemId))
         val itemStack = ItemStack(item, amount)
 
         // Apply NBT data if present
@@ -34,7 +34,7 @@ class ItemStackTypeAdapter : JsonSerializer<ItemStack>, JsonDeserializer<ItemSta
         itemStack: ItemStack, type: Type, jsonSerializationContext: JsonSerializationContext
     ): JsonElement {
         val jsonObject = JsonObject()
-        jsonObject.addProperty("itemId", Registry.ITEM.getId(itemStack.item).toString())
+        jsonObject.addProperty("itemId", Registries.ITEM.getId(itemStack.item).toString())
         jsonObject.addProperty("amount", itemStack.count)
         if (itemStack.hasCustomName()) {
             jsonObject.addProperty("displayName", itemStack.name.toString())
@@ -64,12 +64,6 @@ class ItemStackTypeAdapter : JsonSerializer<ItemStack>, JsonDeserializer<ItemSta
         val amount = jsonObject.get("amount").asInt
         val displayName = if (jsonObject.has("displayName")) jsonObject.get("displayName").asString else null
         val nbt = if (jsonObject.has("nbt")) jsonObject.get("nbt").asString else null
-//        val lore = if (jsonObject.has("lore")) {
-//            val loreJsonArray = jsonObject.get("lore").asJsonArray
-//            val loreList = mutableListOf<String>()
-//            loreJsonArray.forEach { loreList.add(it.asString) }
-//            loreList
-//        } else null
         val itemConfig = ItemConfig(itemId, nbt, amount, displayName)
         return itemConfig.toItemStack()
     }

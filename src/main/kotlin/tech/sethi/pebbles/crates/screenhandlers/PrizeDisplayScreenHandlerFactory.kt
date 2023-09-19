@@ -7,6 +7,7 @@ import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtHelper
+import net.minecraft.registry.Registries
 import net.minecraft.screen.GenericContainerScreenHandler
 import net.minecraft.screen.NamedScreenHandlerFactory
 import net.minecraft.screen.ScreenHandler
@@ -14,7 +15,6 @@ import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
-import net.minecraft.util.registry.Registry
 import tech.sethi.pebbles.crates.lootcrates.CrateConfig
 import tech.sethi.pebbles.crates.lootcrates.Prize
 import tech.sethi.pebbles.crates.util.ParseableMessage
@@ -72,7 +72,7 @@ class CrateInventory(crateItems: List<Prize>, currentPage: Int) : SimpleInventor
         val totalWeight = crateItems.sumOf { it.chance }
         for (index in startIndex until endIndex) {
             val prize = crateItems[index]
-            val itemStack = ItemStack(Registry.ITEM.get(Identifier.tryParse(prize.material)), prize.amount)
+            val itemStack = ItemStack(Registries.ITEM.get(Identifier.tryParse(prize.material)), prize.amount)
             val parsedName = ParseableName(prize.name).returnMessageAsStyledText()
 
             val chance = prize.chance.toDouble() / totalWeight.toDouble() * 100

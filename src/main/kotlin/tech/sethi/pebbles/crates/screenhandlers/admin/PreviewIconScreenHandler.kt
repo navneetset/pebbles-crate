@@ -8,13 +8,13 @@ import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtElement
 import net.minecraft.nbt.NbtList
 import net.minecraft.nbt.NbtString
+import net.minecraft.registry.Registries
 import net.minecraft.screen.GenericContainerScreenHandler
 import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
-import net.minecraft.util.registry.Registry
 import tech.sethi.pebbles.crates.lootcrates.CrateConfig
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
 import tech.sethi.pebbles.crates.lootcrates.Prize
@@ -42,7 +42,7 @@ class PreviewIconScreenHandler(
         for ((index, prize) in crateItems.withIndex()) {
             val materialIdentifier = Identifier.tryParse(prize.material)
             if (materialIdentifier != null) {
-                val item = Registry.ITEM.get(materialIdentifier)
+                val item = Registries.ITEM.get(materialIdentifier)
                 if (item != Items.AIR) {
                     val itemStack = ItemStack(item, prize.amount)
                     itemStack.nbt = NbtCompound().apply { this.putString("PebblesCrateNBT", prize.nbt ?: "") }

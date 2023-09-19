@@ -4,7 +4,6 @@ import net.minecraft.util.math.BlockPos
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.nio.file.StandardOpenOption
 
 class BlacklistConfigManager {
     private val blacklistPath: Path = Paths.get("config/pebbles-crate/blacklist.txt")

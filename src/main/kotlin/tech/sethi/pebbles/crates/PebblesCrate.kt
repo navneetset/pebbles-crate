@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
+import net.minecraft.registry.Registries
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.server.world.ServerWorld
 import net.minecraft.text.Text
@@ -16,7 +17,6 @@ import net.minecraft.util.Hand
 import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3d
-import net.minecraft.util.registry.Registry
 import org.slf4j.LoggerFactory
 import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
@@ -63,7 +63,7 @@ object PebblesCrate : ModInitializer {
                 val crateName = savedCrateData[hitResult.blockPos]
                 val crateConfig = CrateConfigManager().getCrateConfig(crateName!!)
 
-                val parsedKey = Registry.ITEM.get(
+                val parsedKey = Registries.ITEM.get(
                     Identifier.tryParse(
                         crateConfig?.crateKey?.material ?: "minecraft:gold_nugget"
                     )

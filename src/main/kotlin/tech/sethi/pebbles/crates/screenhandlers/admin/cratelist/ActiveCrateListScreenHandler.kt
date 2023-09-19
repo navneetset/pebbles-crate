@@ -8,7 +8,6 @@ import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.text.Text
-import net.minecraft.util.math.BlockPos
 import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
 
@@ -62,7 +61,7 @@ class ActiveCrateList(syncId: Int, val player: PlayerEntity) :
         }
 
         // close and reopen screen
-        player!!.currentScreenHandler.close(player)
+        player!!.currentScreenHandler.onClosed(player)
         player.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, _, p ->
             ActiveCrateList(syncId, p)
         }, Text.literal("Blacklist Particles")))
