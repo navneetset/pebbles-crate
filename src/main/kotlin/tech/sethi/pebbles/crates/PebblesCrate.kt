@@ -12,6 +12,7 @@ import net.minecraft.server.world.ServerWorld
 import net.minecraft.text.Text
 import net.minecraft.util.ActionResult
 import net.minecraft.util.Formatting
+import net.minecraft.util.Hand
 import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3d
@@ -50,7 +51,7 @@ object PebblesCrate : ModInitializer {
         }
 
         UseBlockCallback.EVENT.register(UseBlockCallback { player, world, hand, hitResult ->
-            if (world.isClient || hand != net.minecraft.util.Hand.MAIN_HAND) {
+            if (world.isClient || hand != Hand.MAIN_HAND) {
                 return@UseBlockCallback ActionResult.PASS
             }
 
@@ -178,7 +179,7 @@ object PebblesCrate : ModInitializer {
             // Skip crates in the blacklist
             if (pos in blacklist) continue
 
-            val playersNearby = world.getPlayersByDistance(pos, 32.0) // Only get players within 32 blocks of the chest
+            val playersNearby = world.getPlayersByDistance(pos, 16.0) // Only get players within 32 blocks of the chest
             for (player in playersNearby) {
                 CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
             }
