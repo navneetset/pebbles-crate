@@ -43,9 +43,8 @@ dependencies {
 
     implementation 'com.google.code.gson:gson:2.8.9'
     implementation 'net.kyori:adventure-text-serializer-legacy:4.13.1'
-    implementation 'net.kyori:adventure-platform-fabric:5.5.1'
-
-    include 'net.kyori:adventure-platform-fabric:5.5.1'
+    implementation 'net.kyori:adventure-platform-fabric:5.9.0'
+    include 'net.kyori:adventure-platform-fabric:5.9.0'
     include 'net.kyori:adventure-text-serializer-legacy:4.13.1'
 
     compileOnly 'net.luckperms:api:5.4'
