@@ -65,7 +65,7 @@ class CrateTransformer(val crateName: String, val player: PlayerEntity) {
                 }
                 setLore(crateKeyItemStack, parsedCrateKeyLore)
 
-                player.giveItemStack(crateKeyItemStack)
+                player.inventory.offerOrDrop(crateKeyItemStack)
 
                 val message = "You received $amount ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
                 ParseableMessage(message, player, "placeholder").send()
