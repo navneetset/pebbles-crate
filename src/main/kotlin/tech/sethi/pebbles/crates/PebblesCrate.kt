@@ -179,7 +179,7 @@ object PebblesCrate : ModInitializer {
             // Skip crates in the blacklist
             if (pos in blacklist) continue
 
-            val playersNearby = world.getPlayersByDistance(pos, 16.0) // Only get players within 32 blocks of the chest
+            val playersNearby = world.getPlayersByDistance(pos, 16.0) // Only get players within 16 blocks of the crate block
             for (player in playersNearby) {
                 CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
             }
