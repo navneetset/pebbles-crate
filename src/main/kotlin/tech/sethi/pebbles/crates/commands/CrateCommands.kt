@@ -75,9 +75,17 @@ object CrateCommand {
             1
         }
 
+        val reloadCommand = literal("reload").executes { context ->
+            val source = context.source
+            val crateConfigManager = CrateConfigManager()
+            crateConfigManager.loadCrateConfigs()
+            ParseableMessage("Reloaded crate configs", source.player, "placeholder").send()
+            1
+        }
+
         // Register the commands
         dispatcher.register(
-            padminCommand.then(crateCommand).then(getCrateCommand).then(giveKeyCommand).then(activeCrateConfigCommand)
+            padminCommand.then(crateCommand).then(getCrateCommand).then(giveKeyCommand).then(activeCrateConfigCommand).then(reloadCommand)
         )
     }
 

@@ -60,8 +60,12 @@ object PebblesCrate : ModInitializer {
 
             // Check if the clicked position is in the crate data
             if (hitResult.blockPos in savedCrateData) {
-                val crateName = savedCrateData[hitResult.blockPos]
+                var crateName = savedCrateData[hitResult.blockPos]
                 val crateConfig = CrateConfigManager().getCrateConfig(crateName!!)
+
+                if (crateConfig != null && crateConfig.screenName != null) {
+                    crateName = crateConfig.screenName
+                }
 
                 val parsedKey = Registries.ITEM.get(
                     Identifier.tryParse(

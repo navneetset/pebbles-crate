@@ -22,7 +22,6 @@ class CrateConfigManager {
     }
 
     fun getCrateConfig(crateName: String): CrateConfig? {
-        loadCrateConfigs()
         return crateConfigs[crateName]
     }
 
@@ -50,6 +49,7 @@ class CrateConfigManager {
 
         configDirectory.listFiles { _, name -> name.endsWith(".json") }?.forEach { file ->
             val json = file.readText()
+            crateConfigs.clear()
             if (json.isNotEmpty()) {
                 val crateConfig = gson.fromJson(json, CrateConfig::class.java)
                 val crateName = crateConfig.crateName
@@ -69,6 +69,7 @@ class CrateConfigManager {
 data class CrateConfig(
     val crateName: String,
     val crateKey: CrateKey,
+    val screenName: String? = null,
     var prize: List<Prize>,
 )
 
