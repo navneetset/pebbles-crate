@@ -97,7 +97,7 @@ class CrateEventHandler(
         if (isFinalPrize) {
             height = pos.y + 1.0
         }
-        val spawnPos = Vec3d(pos.x + 0.5, height + 1, pos.z + 0.5)
+        val spawnPos = Vec3d(pos.x + 0.5, height + 1.5, pos.z + 0.5)
 
         val floatingPrizeItemEntity = FloatingPrizeItemEntity(world, spawnPos.x, spawnPos.y, spawnPos.z, itemStack)
         world.spawnEntity(floatingPrizeItemEntity)
