@@ -1,5 +1,8 @@
 package tech.sethi.pebbles.crates.screenhandlers.admin
 
+import net.minecraft.component.DataComponentTypes
+import net.minecraft.component.type.LoreComponent
+import net.minecraft.component.type.NbtComponent
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
 import net.minecraft.item.ItemStack
@@ -8,6 +11,7 @@ import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtElement
 import net.minecraft.nbt.NbtList
 import net.minecraft.nbt.NbtString
+import net.minecraft.registry.DynamicRegistryManager
 import net.minecraft.registry.Registries
 import net.minecraft.screen.GenericContainerScreenHandler
 import net.minecraft.screen.ScreenHandlerType
@@ -45,7 +49,10 @@ class PreviewIconScreenHandler(
                 val item = Registries.ITEM.get(materialIdentifier)
                 if (item != Items.AIR) {
                     val itemStack = ItemStack(item, prize.amount)
-                    itemStack.nbt = NbtCompound().apply { this.putString("PebblesCrateNBT", prize.nbt ?: "") }
+                    val nbt = NbtCompound().apply {
+                        putString("PebblesCrateNBT", prize.nbt ?: "")
+                    }
+                    itemStack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt))
                     setLore(itemStack, prize.commands.map { Text.of(it) })
                     inventory.setStack(index, itemStack)
                 }
@@ -84,9 +91,7 @@ class PreviewIconScreenHandler(
             } else {
                 val currentCrateConfig = currentCrateConfigs.first { it.crateName == crateName }
                 val newCrateConfig = CrateConfig(
-                    crateName = crateName,
-                    crateKey = currentCrateConfig.crateKey,
-                    prize = updatedPrizes
+                    crateName = crateName, crateKey = currentCrateConfig.crateKey, prize = updatedPrizes
                 )
                 crateConfigManager.setCrateConfig(crateName, newCrateConfig)
             }
@@ -106,37 +111,14 @@ class PreviewIconScreenHandler(
 
 
     private fun setLore(itemStack: ItemStack, lore: List<Text>) {
-        val itemNbt = itemStack.getOrCreateSubNbt("display")
-        val loreNbt = NbtList()
-
-        for (line in lore) {
-            loreNbt.add(NbtString.of(Text.Serializer.toJson(line)))
-        }
-
-        itemNbt.put("Lore", loreNbt)
+        val loreComponent = LoreComponent(lore)
+        itemStack.set(DataComponentTypes.LORE, loreComponent)
     }
 
-    private fun updateOddsSumItem() {
-        var totalWeight = BigDecimal.ZERO
-
-        for (i in 0 until 9) {
-            val stack = inventory.getStack(i)
-            if (!stack.isEmpty) {
-                val lore = stack.getSubNbt("display")?.getList("Lore", NbtElement.STRING_TYPE.toInt())
-                if (lore != null && lore.size > 0) {
-                    val line = Text.Serializer.fromJson(lore.getString(0))
-                    val weight = BigDecimal(line?.string?.split(": ")?.get(1) ?: "0")
-                    totalWeight = totalWeight.add(weight)
-                }
-            }
-        }
-
-        oddsSumItem.setCustomName(Text.of("Total Weight: $totalWeight"))
-    }
 
     private fun getWeightFromLore(itemStack: ItemStack): BigDecimal {
-        val lore = itemStack.getSubNbt("display")?.getList("Lore", NbtElement.STRING_TYPE.toInt())
-        val line = Text.Serializer.fromJson(lore?.getString(0))
+        val lore = itemStack.get(DataComponentTypes.LORE)?.lines
+        val line = Text.Serialization.fromJson(lore?.get(0)?.string, DynamicRegistryManager.EMPTY)
         return if (lore != null && lore.size > 0) BigDecimal(line?.string?.split(": ")?.get(1) ?: "0")
         else BigDecimal.ZERO
     }

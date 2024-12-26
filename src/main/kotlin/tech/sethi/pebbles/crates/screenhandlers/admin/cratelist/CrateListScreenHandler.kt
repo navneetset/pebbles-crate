@@ -1,5 +1,6 @@
 package tech.sethi.pebbles.crates.screenhandlers.admin.cratelist
 
+import net.minecraft.component.DataComponentTypes
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
 import net.minecraft.item.ItemStack
@@ -24,7 +25,7 @@ class CrateListScreenHandler(syncId: Int, player: PlayerEntity) :
         for ((index, crateConfig) in existingCrates.withIndex()) {
             val crateItem = ItemStack(Items.ENDER_CHEST)
             val formattedName = ParseableName(crateConfig.crateName).returnMessageAsStyledText()
-            crateItem.setCustomName(formattedName)
+            crateItem.set(DataComponentTypes.CUSTOM_NAME, formattedName)
             inventory.setStack(index, crateItem)
         }
 
@@ -36,7 +37,7 @@ class CrateListScreenHandler(syncId: Int, player: PlayerEntity) :
         // fill last row with gray_stained_glass_pane
         for (i in 45 until 54) {
             val pane = ItemStack(Items.GRAY_STAINED_GLASS_PANE)
-            pane.setCustomName(Text.of(""))
+            pane.set(DataComponentTypes.CUSTOM_NAME, Text.of(""))
             inventory.setStack(i, pane)
         }
 

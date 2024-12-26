@@ -1,5 +1,6 @@
 package tech.sethi.pebbles.crates.screenhandlers.admin
 
+import net.minecraft.component.DataComponentTypes
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
 import net.minecraft.item.ItemStack
@@ -23,7 +24,7 @@ class CrateNameScreenHandler(syncId: Int, private val player: PlayerEntity) : Ge
         // Fill the inventory with paper with modified name
         for (i in 1 until 9) {
             val paper = ItemStack(Items.PAPER)
-            paper.setCustomName(Text.of("Add item to empty slot to name crate"))
+            paper.set(DataComponentTypes.CUSTOM_NAME, Text.of("Add item to empty slot to name crate"))
             inventory.setStack(i, paper)
         }
         val existingCrates = crateConfigManager.loadCrateConfigs()

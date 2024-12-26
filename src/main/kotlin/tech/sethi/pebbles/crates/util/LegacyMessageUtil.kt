@@ -5,6 +5,8 @@ import net.minecraft.server.network.ServerPlayerEntity
 import net.kyori.adventure.platform.fabric.FabricServerAudiences
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
+import net.minecraft.registry.DynamicRegistryManager
+import net.minecraft.text.MutableText
 import net.minecraft.text.Text
 
 fun parse(text: String, vararg placeholders: Any): Component {
@@ -53,7 +55,7 @@ class ParseableMessage(
         val component = parseMessageWithStyles(message, prizeName)
         val gson = GsonComponentSerializer.gson()
         val json = gson.serialize(component)
-        return Text.Serializer.fromJson(json) as Text
+        return Text.Serialization.fromJson(json, DynamicRegistryManager.EMPTY) as MutableText
     }
 }
 
@@ -64,6 +66,6 @@ class ParseableName(
         val component = parseMessageWithStyles(name, "")
         val gson = GsonComponentSerializer.gson()
         val json = gson.serialize(component)
-        return Text.Serializer.fromJson(json) as Text
+        return Text.Serialization.fromJson(json, DynamicRegistryManager.EMPTY) as MutableText
     }
 }

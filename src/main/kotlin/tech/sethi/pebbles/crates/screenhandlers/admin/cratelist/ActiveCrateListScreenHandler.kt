@@ -1,13 +1,17 @@
 package tech.sethi.pebbles.crates.screenhandlers.admin.cratelist
 
+import net.minecraft.component.DataComponentTypes
 import net.minecraft.enchantment.Enchantments
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
+import net.minecraft.registry.RegistryKeys
+import net.minecraft.registry.entry.RegistryEntry
 import net.minecraft.screen.GenericContainerScreenHandler
 import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.text.Text
+import tech.sethi.pebbles.crates.PebblesCrate.server
 import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
 
@@ -33,10 +37,12 @@ class ActiveCrateList(syncId: Int, val player: PlayerEntity) :
             val cratePos = activeCrates.keys.elementAt(index)
             val blockOnPost = player.world.getBlockState(cratePos).block
             val crateItem = blockOnPost.asItem().defaultStack
-            crateItem.setCustomName(crateItem.name.copy().append(" - $crateName"))
+            crateItem.set(DataComponentTypes.CUSTOM_NAME, crateItem.name.copy().append(" - $crateName"))
             if (!blacklist.contains(cratePos)) {
-                crateItem.addEnchantment(Enchantments.VANISHING_CURSE, 1)
-                crateItem.removeSubNbt("HideFlags")
+                val vanishingEnchant = server!!.worlds.first().registryManager.get(RegistryKeys.ENCHANTMENT)
+                    .get(Enchantments.VANISHING_CURSE)
+                crateItem.addEnchantment(RegistryEntry.of(vanishingEnchant), 1)
+
             }
             inventory.setStack(index, crateItem)
         }

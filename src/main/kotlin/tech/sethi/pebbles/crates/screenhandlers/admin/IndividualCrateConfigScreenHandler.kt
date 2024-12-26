@@ -1,5 +1,8 @@
 package tech.sethi.pebbles.crates.screenhandlers.admin
 
+import net.minecraft.component.DataComponentTypes
+import net.minecraft.component.type.LoreComponent
+import net.minecraft.component.type.NbtComponent
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
 import net.minecraft.item.ItemStack
@@ -39,7 +42,10 @@ class IndividualCrateConfigScreenHandler(syncId: Int, private val player: Player
                 val item = Registries.ITEM.get(materialIdentifier)
                 if (item != Items.AIR) {
                     val itemStack = ItemStack(item, prize.amount)
-                    itemStack.nbt = NbtCompound().apply { this.putString("PebblesCrateNBT", prize.nbt ?: "") }
+                    val nbt = NbtCompound().apply {
+                        putString("PebblesCrateNBT", prize.nbt ?: "")
+                    }
+                    itemStack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt))
                     setLore(itemStack, prize.commands.map { Text.of(it) })
                     inventory.setStack(index, itemStack)
                 }
@@ -48,14 +54,8 @@ class IndividualCrateConfigScreenHandler(syncId: Int, private val player: Player
     }
 
     private fun setLore(itemStack: ItemStack, lore: List<Text>) {
-        val itemNbt = itemStack.getOrCreateSubNbt("display")
-        val loreNbt = NbtList()
-
-        for (line in lore) {
-            loreNbt.add(NbtString.of(Text.Serializer.toJson(line)))
-        }
-
-        itemNbt.put("Lore", loreNbt)
+        val loreComponent = LoreComponent(lore)
+        itemStack.set(DataComponentTypes.LORE, loreComponent)
     }
 
 }

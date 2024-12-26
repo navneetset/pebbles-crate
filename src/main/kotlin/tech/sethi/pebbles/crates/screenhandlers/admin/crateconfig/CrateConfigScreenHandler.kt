@@ -1,10 +1,12 @@
 package tech.sethi.pebbles.crates.screenhandlers.admin.crateconfig
 
 import com.google.gson.GsonBuilder
+import net.minecraft.component.DataComponentTypes
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
+import net.minecraft.registry.DynamicRegistryManager
 import net.minecraft.screen.GenericContainerScreenHandler
 import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory
@@ -22,22 +24,29 @@ class CrateConfigScreenHandler(
     init {
         val inventory = inventory
         for (i in 0 until inventory.size()) {
-            inventory.setStack(i, ItemStack(Items.GRAY_STAINED_GLASS_PANE).setCustomName(Text.of("")))
+            inventory.setStack(i,
+                ItemStack(Items.GRAY_STAINED_GLASS_PANE).apply { set(DataComponentTypes.CUSTOM_NAME, Text.of("")) })
         }
 
-        inventory.setStack(
-            12, ItemStack(Items.PAPER).setCustomName(Text.literal("Get Crate").formatted(Formatting.GOLD))
-        )
-        inventory.setStack(
-            13, ItemStack(Items.TRIPWIRE_HOOK).setCustomName(Text.literal("Get Key").formatted(Formatting.GOLD))
-        )
-        inventory.setStack(
-            14, ItemStack(Items.ITEM_FRAME).setCustomName(
-                Text.literal("Configure Prize (Web Editor)").formatted(Formatting.GOLD)
+        inventory.setStack(12, ItemStack(Items.PAPER).apply {
+            set(
+                DataComponentTypes.CUSTOM_NAME, Text.literal("Get Crate").formatted(Formatting.GOLD)
             )
-        )
+        })
 
-        inventory.setStack(18, ItemStack(Items.ARROW).setCustomName(Text.literal("Back").formatted(Formatting.RED)))
+        inventory.setStack(13, ItemStack(Items.TRIPWIRE_HOOK).apply {
+            set(DataComponentTypes.CUSTOM_NAME, Text.literal("Get Key").formatted(Formatting.GOLD))
+        })
+
+        inventory.setStack(14, ItemStack(Items.ITEM_FRAME).apply {
+            set(
+                DataComponentTypes.CUSTOM_NAME, Text.literal("Configure Prize (Web Editor)").formatted(Formatting.GOLD)
+            )
+        })
+
+        inventory.setStack(18, ItemStack(Items.ARROW).apply {
+            set(DataComponentTypes.CUSTOM_NAME, Text.literal("Back").formatted(Formatting.RED))
+        })
     }
 
     val crateConfigManager = CrateConfigManager()
@@ -65,7 +74,7 @@ class CrateConfigScreenHandler(
         if (slotIndex == 14) {
             val url = "https://pebblescrate.sethi.tech/"
             val clickableLink =
-                Text.Serializer.fromJson("{\"text\":\"$url\",\"clickEvent\":{\"action\":\"open_url\",\"value\":\"$url\"}}")
+                Text.Serialization.fromJson(("{\"text\":\"$url\",\"clickEvent\":{\"action\":\"open_url\",\"value\":\"$url\"}}"), DynamicRegistryManager.EMPTY)
             player.sendMessage(
                 Text.literal("To edit the config on the web UI, navigate to: ").formatted(Formatting.GOLD)
                     .append(clickableLink), false

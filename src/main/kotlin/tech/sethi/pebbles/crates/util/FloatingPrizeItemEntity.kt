@@ -30,4 +30,6 @@ class FloatingPrizeItemEntity(
             this.kill()
         }
     }
+
+    override fun shouldSave() = false
 }

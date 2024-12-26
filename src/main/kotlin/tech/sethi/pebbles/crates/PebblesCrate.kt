@@ -2,12 +2,20 @@ package tech.sethi.pebbles.crates
 
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
+import net.minecraft.component.DataComponentTypes
+import net.minecraft.component.type.NbtComponent
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
+import net.minecraft.nbt.NbtCompound
+import net.minecraft.nbt.NbtElement
+import net.minecraft.nbt.NbtOps
 import net.minecraft.registry.Registries
+import net.minecraft.registry.RegistryOps
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.server.world.ServerWorld
 import net.minecraft.text.Text
@@ -37,6 +45,9 @@ object PebblesCrate : ModInitializer {
     val playerCooldowns: MutableMap<UUID, Long> = Collections.synchronizedMap(mutableMapOf())
     val tasks: MutableMap<Long, MutableList<Task>> = mutableMapOf()
 
+    var server: MinecraftServer? = null
+
+    var nbtOps: RegistryOps<NbtElement>? = null
 
     override fun onInitialize() {
         logger.info("Initializing Pebbles Loot Crates!")
@@ -77,14 +88,15 @@ object PebblesCrate : ModInitializer {
                 if (crateKeyLore != null) {
                     setLore(parseKeyStack, crateKeyLore)
                 }
-                val nbt = parseKeyStack.orCreateNbt
                 if (crateConfig != null) {
-                    nbt.putString("CrateName", crateConfig.crateName)
+                    val nbt = NbtComponent.of(NbtCompound().apply { putString("CrateName", crateName) })
+                    parseKeyStack.set(DataComponentTypes.CUSTOM_DATA, nbt)
                 }
 
                 if (crateConfig != null) {
                     val heldStack = player.mainHandStack
-                    if (heldStack.item == parseKeyStack.item && heldStack.hasNbt() && heldStack.nbt!!.getString(
+                    val heldStackNbt = heldStack.get(DataComponentTypes.CUSTOM_DATA)?.copyNbt()
+                    if (heldStack.item == parseKeyStack.item && heldStackNbt != null && heldStackNbt.getString(
                             "CrateName"
                         ) == crateConfig.crateName
                     ) {
@@ -127,10 +139,13 @@ object PebblesCrate : ModInitializer {
             } else {
                 // Assign a new crate if the player is holding a named paper
                 val heldStack = player.mainHandStack
-                if (heldStack.item == Items.PAPER && heldStack.hasCustomName() && heldStack.hasNbt() && heldStack.nbt!!.contains(
+                if (heldStack.item == Items.PAPER && heldStack.componentChanges.get(DataComponentTypes.CUSTOM_NAME) != null && heldStack.get(
+                        DataComponentTypes.CUSTOM_DATA
+                    )?.nbt?.contains(
                         "CrateName"
-                    )) {
-                    val crateName = heldStack.nbt!!.getString("CrateName")
+                    ) == true
+                ) {
+                    val crateName = heldStack.get(DataComponentTypes.CUSTOM_DATA)?.nbt?.getString("CrateName") ?: return@UseBlockCallback ActionResult.PASS
                     savedCrateData[hitResult.blockPos] = crateName
                     crateDataManager.saveCrateData(savedCrateData)
 
@@ -172,6 +187,11 @@ object PebblesCrate : ModInitializer {
             }
             CrateParticles.updateTimers()
         })
+
+        ServerLifecycleEvents.SERVER_STARTING.register { server ->
+            this.server = server
+            nbtOps = server!!.registryManager.getOps(NbtOps.INSTANCE)
+        }
     }
 
     private fun spawnParticlesForAllCrates(world: ServerWorld) {
@@ -182,14 +202,15 @@ object PebblesCrate : ModInitializer {
         for (pos in savedCrateData.keys) {
             // Skip crates in the blacklist
             if (pos in blacklist) continue
+            world.getChunk(pos.x shr 4, pos.z shr 4)
 
-            val playersNearby = world.getPlayersByDistance(pos, 16.0) // Only get players within 16 blocks of the crate block
+            val playersNearby =
+                world.getPlayersByDistance(pos, 16.0) // Only get players within 16 blocks of the crate block
             for (player in playersNearby) {
                 CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
             }
         }
     }
-
 
 
     private fun ServerWorld.getPlayersByDistance(pos: BlockPos, distance: Double): List<ServerPlayerEntity> {

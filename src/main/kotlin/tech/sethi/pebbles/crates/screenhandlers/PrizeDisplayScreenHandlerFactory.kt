@@ -1,5 +1,10 @@
 package tech.sethi.pebbles.crates.screenhandlers
 
+import com.mojang.serialization.Dynamic
+import net.minecraft.SharedConstants
+import net.minecraft.component.ComponentChanges
+import net.minecraft.component.DataComponentTypes
+import net.minecraft.datafixer.TypeReferences
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.entity.player.PlayerInventory
 import net.minecraft.inventory.SimpleInventory
@@ -7,6 +12,8 @@ import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtHelper
+import net.minecraft.nbt.NbtOps
+import net.minecraft.nbt.StringNbtReader
 import net.minecraft.registry.Registries
 import net.minecraft.screen.GenericContainerScreenHandler
 import net.minecraft.screen.NamedScreenHandlerFactory
@@ -15,6 +22,8 @@ import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
+import tech.sethi.pebbles.crates.PebblesCrate
+import tech.sethi.pebbles.crates.PebblesCrate.server
 import tech.sethi.pebbles.crates.lootcrates.CrateConfig
 import tech.sethi.pebbles.crates.lootcrates.Prize
 import tech.sethi.pebbles.crates.util.ParseableMessage
@@ -72,15 +81,40 @@ class CrateInventory(crateItems: List<Prize>, currentPage: Int) : SimpleInventor
         val totalWeight = crateItems.sumOf { it.chance }
         for (index in startIndex until endIndex) {
             val prize = crateItems[index]
-            val itemStack = ItemStack(Registries.ITEM.get(Identifier.tryParse(prize.material)), prize.amount)
+            var itemStack = ItemStack(Registries.ITEM.get(Identifier.tryParse(prize.material)), prize.amount)
             val parsedName = ParseableName(prize.name).returnMessageAsStyledText()
 
             val chance = prize.chance.toDouble() / totalWeight.toDouble() * 100
             val roundedChance = String.format("%.2f", chance)
 
             if (prize.nbt != null) {
-                val nbt: NbtCompound = NbtHelper.fromNbtProviderString(prize.nbt)
-                itemStack.nbt = nbt
+                val parsedNbt = StringNbtReader.parse(prize.nbt)
+
+                val namespacedKeyPattern = Regex("^[a-z0-9_.-]+:[a-z0-9_/.-]+$")
+
+                val isLegacy = parsedNbt.keys.any { !namespacedKeyPattern.matches(it) }
+                if (isLegacy) {
+                    val legacyNbt = NbtCompound().apply {
+                        putString("id", itemStack.registryEntry.idAsString)
+                        putInt("Count", prize.amount)
+                        put("tag", parsedNbt)
+                    }
+
+                    val updatedNbt = server?.dataFixer?.update(
+                        TypeReferences.ITEM_STACK,
+                        Dynamic(PebblesCrate.nbtOps, legacyNbt),
+                        3700,
+                        SharedConstants.getGameVersion().saveVersion.id
+                    )?.value
+
+                    itemStack = ItemStack.CODEC.parse(PebblesCrate.nbtOps, updatedNbt).result().orElse(ItemStack.EMPTY)
+                } else {
+                    val updatedNbt =
+                        ComponentChanges.CODEC.parse(PebblesCrate.nbtOps, StringNbtReader.parse(prize.nbt)).result()
+                            .orElse(null)
+                    itemStack.applyChanges(updatedNbt)
+                    itemStack.count = prize.amount
+                }
             }
 
             if (prize.lore != null) {
@@ -95,7 +129,9 @@ class CrateInventory(crateItems: List<Prize>, currentPage: Int) : SimpleInventor
                 setLore(itemStack, listOf(Text.of("Chance: ${roundedChance}%")))
             }
 
-            setStack(index - startIndex, itemStack.setCustomName(parsedName))
+            setStack(index - startIndex, itemStack.apply {
+                set(DataComponentTypes.CUSTOM_NAME, parsedName)
+            })
         }
 
         // Fill the bottom row with gray stained glass
@@ -108,11 +144,11 @@ class CrateInventory(crateItems: List<Prize>, currentPage: Int) : SimpleInventor
         if (crateItems.size > 45) {
 
             // Set the page text
-            setStack(52, ItemStack(Items.PAPER).apply { setCustomName(pageText) })
+            setStack(52, ItemStack(Items.PAPER).apply { set(DataComponentTypes.CUSTOM_NAME, pageText) })
 
             // Set the navigation arrows
-            setStack(45, ItemStack(Items.ARROW).apply { setCustomName(Text.of("Previous")) })
-            setStack(53, ItemStack(Items.ARROW).apply { setCustomName(Text.of("Next")) })
+            setStack(45, ItemStack(Items.ARROW).apply { set(DataComponentTypes.CUSTOM_NAME, Text.of("Previous")) })
+            setStack(53, ItemStack(Items.ARROW).apply { set(DataComponentTypes.CUSTOM_NAME, Text.of("Next")) })
         }
     }
 }

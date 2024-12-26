@@ -1,9 +1,15 @@
 package tech.sethi.pebbles.crates.lootcrates
 
 import com.mojang.brigadier.ParseResults
+import com.mojang.serialization.Dynamic
+import net.minecraft.SharedConstants
+import net.minecraft.component.ComponentChanges
+import net.minecraft.component.DataComponentTypes
+import net.minecraft.datafixer.TypeReferences
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtHelper
+import net.minecraft.nbt.StringNbtReader
 import net.minecraft.registry.Registries
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.network.ServerPlayerEntity
@@ -17,6 +23,7 @@ import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3d
 import net.minecraft.world.World
 import tech.sethi.pebbles.crates.PebblesCrate
+import tech.sethi.pebbles.crates.PebblesCrate.server
 import tech.sethi.pebbles.crates.particles.CrateParticles
 import tech.sethi.pebbles.crates.util.FloatingPrizeItemEntity
 import tech.sethi.pebbles.crates.util.ParseableMessage
@@ -69,7 +76,7 @@ class CrateEventHandler(
 
             if (prize.broadcast != null && prize.broadcast != "") {
                 var broadcast = prize.broadcast.replace("{prize_name}", prize.name)
-                broadcast = broadcast.replace("{player_name}", player.entityName)
+                broadcast = broadcast.replace("{player_name}", player.name.string)
                 broadcast = broadcast.replace("{crate_name}", crateName)
                 if (broadcast != "") {
                     ParseableMessage(broadcast, player, prize.name).sendToAll()
@@ -83,14 +90,39 @@ class CrateEventHandler(
         removeFloatingItem()
 
         val parsedPrize = Registries.ITEM.get(Identifier.tryParse(prize.material))
-        val itemStack = ItemStack(parsedPrize)
+        var itemStack = ItemStack(parsedPrize)
 
-        if (prize.nbt?.isNotBlank() == true) {
-            val nbt: NbtCompound = NbtHelper.fromNbtProviderString(prize.nbt)
-            itemStack.nbt = nbt
+        if (prize.nbt?.isNotBlank() == true && prize.nbt != "{}" && prize.nbt != "null") {
+                val parsedNbt = StringNbtReader.parse(prize.nbt)
+
+                val namespacedKeyPattern = Regex("^[a-z0-9_.-]+:[a-z0-9_/.-]+$")
+
+                val isLegacy = parsedNbt.keys.any { !namespacedKeyPattern.matches(it) }
+                if (isLegacy) {
+                    val legacyNbt = NbtCompound().apply {
+                        putString("id", itemStack.registryEntry.idAsString)
+                        putInt("Count", prize.amount)
+                        put("tag", parsedNbt)
+                    }
+
+                    val updatedNbt = server?.dataFixer?.update(
+                        TypeReferences.ITEM_STACK,
+                        Dynamic(PebblesCrate.nbtOps, legacyNbt),
+                        3700,
+                        SharedConstants.getGameVersion().saveVersion.id
+                    )?.value
+
+                    itemStack = ItemStack.CODEC.parse(PebblesCrate.nbtOps, updatedNbt).result().orElse(ItemStack.EMPTY)
+                } else {
+                    val updatedNbt =
+                        ComponentChanges.CODEC.parse(PebblesCrate.nbtOps, StringNbtReader.parse(prize.nbt)).result()
+                            .orElse(null)
+                    itemStack.applyChanges(updatedNbt)
+                    itemStack.count = prize.amount
+                }
         }
 
-        itemStack.setCustomName(Text.of(prize.name))
+        itemStack.set(DataComponentTypes.CUSTOM_NAME, Text.of(prize.name))
 
         var height = pos.y.toDouble()
 
@@ -143,7 +175,7 @@ class CrateEventHandler(
                 spawnFloatingItem(finalPrize) // Display the final prize as a floating item
 
                 for (command in finalPrize.commands) {
-                    val cmd = command.replace("{player_name}", player.entityName)
+                    val cmd = command.replace("{player_name}", player.name.string)
                     try {
                         val parseResults: ParseResults<ServerCommandSource> =
                             player.server.commandManager.dispatcher.parse(cmd, player.server.commandSource)

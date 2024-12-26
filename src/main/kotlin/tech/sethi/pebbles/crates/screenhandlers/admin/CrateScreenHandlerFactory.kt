@@ -1,5 +1,7 @@
 package tech.sethi.pebbles.crates.screenhandlers.admin
 
+import net.minecraft.component.DataComponentTypes
+import net.minecraft.component.type.LoreComponent
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.entity.player.PlayerInventory
 import net.minecraft.inventory.SimpleInventory
@@ -94,14 +96,8 @@ class CrateScreenHandler(
     }
 
     private fun setLore(itemStack: ItemStack, lore: List<Text>) {
-        val itemNbt = itemStack.getOrCreateSubNbt("display")
-        val loreNbt = NbtList()
-
-        for (line in lore) {
-            loreNbt.add(NbtString.of(Text.Serializer.toJson(line)))
-        }
-
-        itemNbt.put("Lore", loreNbt)
+        val loreComponent = LoreComponent(lore)
+        itemStack.set(DataComponentTypes.LORE, loreComponent)
     }
 }
 

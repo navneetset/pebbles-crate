@@ -3,30 +3,65 @@ import net.minecraft.nbt.NbtHelper
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
 import com.google.gson.*
+import com.mojang.serialization.Dynamic
+import net.minecraft.SharedConstants
+import net.minecraft.component.ComponentChanges
+import net.minecraft.component.DataComponentTypes
+import net.minecraft.datafixer.TypeReferences
+import net.minecraft.nbt.NbtCompound
+import net.minecraft.nbt.NbtOps
+import net.minecraft.nbt.StringNbtReader
+import net.minecraft.registry.DynamicRegistryManager
 import net.minecraft.registry.Registries
+import tech.sethi.pebbles.crates.PebblesCrate
+import tech.sethi.pebbles.crates.PebblesCrate.server
 import java.lang.reflect.Type
 
 data class ItemConfig(
     val itemId: String, val nbt: String?, val amount: Int, val displayName: String?
 ) {
     fun toItemStack(): ItemStack {
-        val item = Registries.ITEM.get(Identifier(itemId))
-        val itemStack = ItemStack(item, amount)
+        val item = Registries.ITEM.get(Identifier.of(itemId))
+        var itemStack = ItemStack(item, amount)
 
         // Apply NBT data if present
         if (nbt != null) {
-            val nbtCompound = NbtHelper.fromNbtProviderString(nbt)
-            itemStack.nbt = nbtCompound
+            val parsedNbt = StringNbtReader.parse(nbt)
+
+            val namespacedKeyPattern = Regex("^[a-z0-9_.-]+:[a-z0-9_/.-]+$")
+
+            val isLegacy = parsedNbt.keys.any { !namespacedKeyPattern.matches(it) }
+            if (isLegacy) {
+                val legacyNbt = NbtCompound().apply {
+                    putString("id", itemStack.registryEntry.idAsString)
+                    putInt("Count", amount)
+                    put("tag", parsedNbt)
+                }
+
+                val updatedNbt = server?.dataFixer?.update(
+                    TypeReferences.ITEM_STACK,
+                    Dynamic(PebblesCrate.nbtOps, legacyNbt),
+                    3700,
+                    SharedConstants.getGameVersion().saveVersion.id
+                )?.value
+
+                itemStack = ItemStack.CODEC.parse(PebblesCrate.nbtOps, updatedNbt).result().orElse(ItemStack.EMPTY)
+            } else {
+                val updatedNbt =
+                    ComponentChanges.CODEC.parse(PebblesCrate.nbtOps, StringNbtReader.parse(nbt)).result()
+                        .orElse(null)
+                itemStack.applyChanges(updatedNbt)
+                itemStack.count = amount
+            }
         }
 
         if (displayName != null) {
-            itemStack.setCustomName(Text.Serializer.fromJson(displayName))
+            itemStack.set(DataComponentTypes.CUSTOM_NAME, Text.Serialization.fromJson(displayName, DynamicRegistryManager.EMPTY))
         }
 
         return itemStack
     }
 }
-
 
 
 class ItemStackTypeAdapter : JsonSerializer<ItemStack>, JsonDeserializer<ItemStack> {
@@ -36,20 +71,20 @@ class ItemStackTypeAdapter : JsonSerializer<ItemStack>, JsonDeserializer<ItemSta
         val jsonObject = JsonObject()
         jsonObject.addProperty("itemId", Registries.ITEM.getId(itemStack.item).toString())
         jsonObject.addProperty("amount", itemStack.count)
-        if (itemStack.hasCustomName()) {
-            jsonObject.addProperty("displayName", itemStack.name.toString())
+        if (itemStack.get(DataComponentTypes.CUSTOM_NAME) != null) {
+            jsonObject.addProperty("displayName", itemStack.name.string)
         }
         // Save NBT data
-        if (itemStack.hasNbt()) {
-            jsonObject.addProperty("nbt", itemStack.nbt.toString())
+        if (itemStack.componentChanges.size() > 0) {
+            val nbtString = ComponentChanges.CODEC.encodeStart(PebblesCrate.nbtOps, itemStack.componentChanges).result().orElse(null)
+            jsonObject.addProperty("nbt", nbtString.asString())
         }
-        if (itemStack.hasNbt() && itemStack.nbt!!.contains("display") && itemStack.nbt!!.getCompound("display")
-                .contains("Lore")
+        if (itemStack.componentChanges.size() > 0 && itemStack.get(DataComponentTypes.LORE)?.lines?.isNotEmpty() == true
         ) {
             val loreJsonArray = JsonArray()
-            val loreNbtList = itemStack.nbt!!.getCompound("display").getList("Lore", 8)
+            val loreNbtList = itemStack.get(DataComponentTypes.LORE)?.lines ?: return jsonObject
             for (i in 0 until loreNbtList.size) {
-                loreJsonArray.add(loreNbtList.getString(i))
+                loreJsonArray.add(loreNbtList[i].string)
             }
             jsonObject.add("lore", loreJsonArray)
         }
