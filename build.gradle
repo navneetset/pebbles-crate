@@ -37,8 +37,11 @@ dependencies {
 
     implementation 'net.kyori:adventure-text-serializer-legacy:4.17.0'
     implementation 'net.kyori:adventure-platform-fabric:5.14.2'
+    implementation "net.kyori:adventure-api:4.17.0"
+
     include 'net.kyori:adventure-platform-fabric:5.14.2'
     include 'net.kyori:adventure-text-serializer-legacy:4.17.0'
+    include "net.kyori:adventure-api:4.17.0"
 
     compileOnly 'net.luckperms:api:5.4'
 }

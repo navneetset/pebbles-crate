@@ -6,9 +6,10 @@ import com.google.gson.GsonBuilder
 import net.minecraft.item.ItemStack
 import java.io.File
 
-class CrateConfigManager {
+object CrateConfigManager {
     private val gson: Gson = GsonBuilder().registerTypeAdapter(ItemStack::class.java, ItemStackTypeAdapter()).create()
     private val configDirectory = File("config/pebbles-crate/crates")
+    private val crateConfigs = mutableMapOf<String, CrateConfig>()
 
 
     fun createCratesFolder() {
@@ -47,9 +48,10 @@ class CrateConfigManager {
 
         val loadedConfigs = mutableListOf<CrateConfig>()
 
+        crateConfigs.clear()
+
         configDirectory.listFiles { _, name -> name.endsWith(".json") }?.forEach { file ->
             val json = file.readText()
-            crateConfigs.clear()
             if (json.isNotEmpty()) {
                 val crateConfig = gson.fromJson(json, CrateConfig::class.java)
                 val crateName = crateConfig.crateName
@@ -61,9 +63,6 @@ class CrateConfigManager {
         return loadedConfigs
     }
 
-    companion object {
-        private val crateConfigs = mutableMapOf<String, CrateConfig>()
-    }
 }
 
 data class CrateConfig(

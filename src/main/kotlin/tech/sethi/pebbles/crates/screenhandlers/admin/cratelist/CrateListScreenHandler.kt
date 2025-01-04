@@ -17,7 +17,7 @@ import tech.sethi.pebbles.crates.util.ParseableName
 class CrateListScreenHandler(syncId: Int, player: PlayerEntity) :
     GenericContainerScreenHandler(ScreenHandlerType.GENERIC_9X6, syncId, player.inventory, SimpleInventory(9 * 6), 6) {
 
-    private val crateConfigManager = CrateConfigManager()
+    private val crateConfigManager = CrateConfigManager
 
     init {
         val existingCrates = crateConfigManager.loadCrateConfigs()

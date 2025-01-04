@@ -49,7 +49,7 @@ class CrateConfigScreenHandler(
         })
     }
 
-    val crateConfigManager = CrateConfigManager()
+    val crateConfigManager = CrateConfigManager
     val crateConfig = crateConfigManager.getCrateConfig(crateName)
     override fun onSlotClick(slotIndex: Int, button: Int, actionType: SlotActionType?, player: PlayerEntity?) {
         if (actionType == SlotActionType.THROW || actionType == SlotActionType.CLONE || actionType == SlotActionType.SWAP || actionType == SlotActionType.PICKUP_ALL) {

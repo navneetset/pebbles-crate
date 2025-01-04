@@ -22,7 +22,7 @@ class IndividualCrateConfigScreenHandler(syncId: Int, private val player: Player
         ScreenHandlerType.GENERIC_9X6, syncId, player.inventory, SimpleInventory(9 * 6), 6
     ) {
 
-        private val crateConfigManager = CrateConfigManager()
+        private val crateConfigManager = CrateConfigManager
 
     init {
         val existingCrates = crateConfigManager.loadCrateConfigs()

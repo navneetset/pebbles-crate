@@ -29,7 +29,7 @@ class PreviewIconScreenHandler(
 ) : GenericContainerScreenHandler(ScreenHandlerType.GENERIC_9X3, syncId, player.inventory, SimpleInventory(9 * 3), 3) {
 
     private val oddsSumItem = ItemStack(Items.PAPER)
-    private val crateConfigManager = CrateConfigManager()
+    private val crateConfigManager = CrateConfigManager
 
     init {
         val existingCrates = crateConfigManager.loadCrateConfigs()

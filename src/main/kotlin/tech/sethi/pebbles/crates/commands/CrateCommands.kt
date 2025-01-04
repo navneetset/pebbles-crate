@@ -77,7 +77,7 @@ object CrateCommand {
 
         val reloadCommand = literal("reload").executes { context ->
             val source = context.source
-            val crateConfigManager = CrateConfigManager()
+            val crateConfigManager = CrateConfigManager
             crateConfigManager.loadCrateConfigs()
             ParseableMessage("Reloaded crate configs", source.player, "placeholder").send()
             1
@@ -109,7 +109,7 @@ object CrateCommand {
     private fun getCrateNameSuggestions(
         context: CommandContext<ServerCommandSource>, builder: SuggestionsBuilder
     ): CompletableFuture<Suggestions> {
-        val crateConfigManager = CrateConfigManager()
+        val crateConfigManager = CrateConfigManager
         val crateNames = crateConfigManager.loadCrateConfigs().map { it.crateName }
         return CommandSource.suggestMatching(crateNames, builder)
     }

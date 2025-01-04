@@ -23,7 +23,7 @@ import tech.sethi.pebbles.crates.util.setLore
 
 class CrateTransformer(val crateName: String, val player: PlayerEntity) {
 
-    val crateConfig = CrateConfigManager().getCrateConfig(crateName)
+    val crateConfig = CrateConfigManager.getCrateConfig(crateName)
 
     private val crateItemStack = ItemStack(Items.PAPER)
 

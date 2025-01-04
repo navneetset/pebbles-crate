@@ -53,7 +53,7 @@ object PebblesCrate : ModInitializer {
         logger.info("Initializing Pebbles Loot Crates!")
 
         //create /config/pebbles-crate/crates if it doesn't exist
-        CrateConfigManager().createCratesFolder()
+        CrateConfigManager.createCratesFolder()
 
         TickHandler()
 
@@ -72,7 +72,7 @@ object PebblesCrate : ModInitializer {
             // Check if the clicked position is in the crate data
             if (hitResult.blockPos in savedCrateData) {
                 var crateName = savedCrateData[hitResult.blockPos]
-                val crateConfig = CrateConfigManager().getCrateConfig(crateName!!)
+                val crateConfig = CrateConfigManager.getCrateConfig(crateName!!)
 
                 if (crateConfig != null && crateConfig.screenName != null) {
                     crateName = crateConfig.screenName

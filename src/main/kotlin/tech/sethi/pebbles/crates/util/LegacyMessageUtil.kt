@@ -3,6 +3,7 @@ package tech.sethi.pebbles.crates.util
 import net.kyori.adventure.text.Component
 import net.minecraft.server.network.ServerPlayerEntity
 import net.kyori.adventure.platform.fabric.FabricServerAudiences
+import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import net.minecraft.registry.DynamicRegistryManager
@@ -12,12 +13,12 @@ import net.minecraft.text.Text
 fun parse(text: String, vararg placeholders: Any): Component {
     val legecySerializer = LegacyComponentSerializer.legacyAmpersand()
     val formattedText = String.format(text, *placeholders)
-    return legecySerializer.deserialize(formattedText)
+    return legecySerializer.deserialize(formattedText).decoration(TextDecoration.ITALIC, false)
 }
 
 fun parseMessageWithStyles(text: String, prizeName: String): Component {
     val legecySerializer = LegacyComponentSerializer.legacyAmpersand()
-    val styledPrizeName = legecySerializer.deserialize(prizeName)
+    val styledPrizeName = legecySerializer.deserialize(prizeName).decoration(TextDecoration.ITALIC, false)
 
     val parts = text.split(Regex.escape("{prize_name}"))
 

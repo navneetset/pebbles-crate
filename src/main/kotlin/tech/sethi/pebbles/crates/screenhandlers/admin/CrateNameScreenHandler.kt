@@ -19,7 +19,7 @@ class CrateNameScreenHandler(syncId: Int, private val player: PlayerEntity) : Ge
 
     init {
         val inventory = inventory
-        val crateConfigManager = CrateConfigManager()
+        val crateConfigManager = CrateConfigManager
 
         // Fill the inventory with paper with modified name
         for (i in 1 until 9) {
@@ -42,7 +42,7 @@ class CrateNameScreenHandler(syncId: Int, private val player: PlayerEntity) : Ge
         if (slotIndex == 0 && inventory.getStack(0).item == Items.NAME_TAG) {
             val crateName = inventory.getStack(0).name.string
             // Check if the crate name is already taken
-            val existingCrates = CrateConfigManager().loadCrateConfigs()
+            val existingCrates = CrateConfigManager.loadCrateConfigs()
             for (crateConfig in existingCrates) {
                 if (crateConfig.crateName == crateName) {
                     player.sendMessage(Text.of("Crate name already taken"), false)
