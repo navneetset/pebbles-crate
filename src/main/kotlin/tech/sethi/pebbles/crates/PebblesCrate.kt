@@ -32,9 +32,7 @@ import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
 import tech.sethi.pebbles.crates.lootcrates.CrateEventHandler
 import tech.sethi.pebbles.crates.particles.CrateParticles
 import tech.sethi.pebbles.crates.screenhandlers.PrizeDisplayScreenHandlerFactory
-import tech.sethi.pebbles.crates.util.Task
-import tech.sethi.pebbles.crates.util.TickHandler
-import tech.sethi.pebbles.crates.util.setLore
+import tech.sethi.pebbles.crates.util.*
 import tech.sethi.pebbleslootcrate.commands.CrateCommand
 import java.util.*
 
@@ -130,7 +128,7 @@ object PebblesCrate : ModInitializer {
                         // Open crate preview GUI
                         player.openHandledScreen(
                             PrizeDisplayScreenHandlerFactory(
-                                Text.literal("$crateName"), crateConfig
+                                ParseableName("$crateName").returnMessageAsStyledText(), crateConfig
                             )
                         )
                     }
@@ -145,7 +143,8 @@ object PebblesCrate : ModInitializer {
                         "CrateName"
                     ) == true
                 ) {
-                    val crateName = heldStack.get(DataComponentTypes.CUSTOM_DATA)?.nbt?.getString("CrateName") ?: return@UseBlockCallback ActionResult.PASS
+                    val crateName = heldStack.get(DataComponentTypes.CUSTOM_DATA)?.nbt?.getString("CrateName")
+                        ?: return@UseBlockCallback ActionResult.PASS
                     savedCrateData[hitResult.blockPos] = crateName
                     crateDataManager.saveCrateData(savedCrateData)
 
