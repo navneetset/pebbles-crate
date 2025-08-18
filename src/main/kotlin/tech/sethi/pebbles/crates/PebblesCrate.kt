@@ -199,12 +199,13 @@ object PebblesCrate : ModInitializer {
         for (pos in savedCrateData.keys) {
             // Skip crates in the blacklist
             if (pos in blacklist) continue
-            world.getChunk(pos.x shr 4, pos.z shr 4)
 
-            val playersNearby =
-                world.getPlayersByDistance(pos, 16.0) // Only get players within 16 blocks of the crate block
-            for (player in playersNearby) {
-                CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
+            if (world.isChunkLoaded(pos.x shr 4, pos.z shr 4)){
+                val playersNearby =
+                    world.getPlayersByDistance(pos, 16.0) // Only get players within 16 blocks of the crate block
+                for (player in playersNearby) {
+                    CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
+                }
             }
         }
     }
