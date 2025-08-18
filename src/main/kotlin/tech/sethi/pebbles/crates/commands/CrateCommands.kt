@@ -1,5 +1,6 @@
 package tech.sethi.pebbleslootcrate.commands
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
@@ -16,14 +17,24 @@ import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.server.command.CommandManager
 import net.minecraft.text.Text
 import net.minecraft.server.command.CommandManager.literal
+import net.minecraft.util.thread.ThreadExecutor
+import tech.sethi.pebbles.crates.PebblesCrate
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
+import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
 import tech.sethi.pebbles.crates.lootcrates.CrateTransformer
 import tech.sethi.pebbles.crates.screenhandlers.admin.cratelist.ActiveCrateList
 import tech.sethi.pebbles.crates.screenhandlers.admin.cratelist.CrateListScreenHandler
 import tech.sethi.pebbles.crates.util.ParseableMessage
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 
 object CrateCommand {
+    var EXECUTOR_PEBBLES_CRATE = Executors.newFixedThreadPool(1, ThreadFactoryBuilder()
+        .setNameFormat("Executor-PebblesCrate-%d")
+        .setDaemon(true)
+        .build()) as Executor
+
     fun register(dispatcher: CommandDispatcher<ServerCommandSource>) {
         val padminCommand = literal("padmin").requires { source ->
             val player = source.player as? PlayerEntity
@@ -79,6 +90,7 @@ object CrateCommand {
             val source = context.source
             val crateConfigManager = CrateConfigManager
             crateConfigManager.loadCrateConfigs()
+            PebblesCrate.crateDataManager.CRATE_DATA.clear()
             ParseableMessage("Reloaded crate configs", source.player, "placeholder").send()
             1
         }
@@ -115,7 +127,6 @@ object CrateCommand {
     }
 
     private fun getCrate(context: CommandContext<ServerCommandSource>): Int {
-
         val crateName = StringArgumentType.getString(context, "crateName")
         val crateTransformer = CrateTransformer(crateName, context.source.player as PlayerEntity)
 
@@ -125,22 +136,25 @@ object CrateCommand {
 
 
     private fun giveCrateKey(context: CommandContext<ServerCommandSource>): Int {
-        val crateName = StringArgumentType.getString(context, "crateName")
-        val amount = IntegerArgumentType.getInteger(context, "amount")
+        CompletableFuture.runAsync( { ->
+            val crateName = StringArgumentType.getString(context, "crateName")
+            val amount = IntegerArgumentType.getInteger(context, "amount")
+            val players = EntityArgumentType.getPlayers(context, "player")
 
-        val players = EntityArgumentType.getPlayers(context, "player")
-        for (player in players) {
-            CrateTransformer(crateName, player).giveKey(amount, player)
-            val adminMessage = "${player.name.string} received $amount $crateName keys!"
+            for (player in players) {
+                if (player == null) continue
+                CrateTransformer(crateName, player).giveKey(amount, player)
+                val adminMessage = "${player.name.string} received $amount $crateName keys!"
 
-            if (context.source.player != null) {
-                ParseableMessage(adminMessage, context.source.player, "placeholder").send()
+                if (context.source.player != null) {
+                    ParseableMessage(adminMessage, context.source.player, "placeholder").send()
+                    println(adminMessage)
+                }
+
                 println(adminMessage)
+
             }
-
-            println(adminMessage)
-
-        }
+        }, EXECUTOR_PEBBLES_CRATE)
 
         return 1
     }

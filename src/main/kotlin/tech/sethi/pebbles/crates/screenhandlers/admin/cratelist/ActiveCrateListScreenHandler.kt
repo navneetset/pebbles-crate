@@ -11,16 +11,17 @@ import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.text.Text
+import net.minecraft.util.math.BlockPos
+import tech.sethi.pebbles.crates.PebblesCrate
 import tech.sethi.pebbles.crates.PebblesCrate.server
 import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
+import java.util.HashMap
 
 class ActiveCrateList(syncId: Int, val player: PlayerEntity) :
     GenericContainerScreenHandler(ScreenHandlerType.GENERIC_9X6, syncId, player.inventory, SimpleInventory(9 * 6), 6) {
 
-    private val activeCrates = CrateDataManager().loadCrateData()
-
-    private val blacklistManager = BlacklistConfigManager()
+    private val blacklistManager = PebblesCrate.blacklistConfigManager
 
     init {
         initializeInventory()
@@ -33,6 +34,7 @@ class ActiveCrateList(syncId: Int, val player: PlayerEntity) :
 
     private fun initializeInventory() {
         val blacklist = blacklistManager.getBlacklist()
+        val activeCrates = PebblesCrate.crateDataManager.getCrateData()
         for ((index, crateName) in activeCrates.values.withIndex()) {
             val cratePos = activeCrates.keys.elementAt(index)
             val blockOnPost = player.world.getBlockState(cratePos).block
@@ -53,6 +55,7 @@ class ActiveCrateList(syncId: Int, val player: PlayerEntity) :
             return
         }
 
+        val activeCrates = PebblesCrate.crateDataManager.getCrateData()
         if (slotIndex >= activeCrates.size) {
             return
         }

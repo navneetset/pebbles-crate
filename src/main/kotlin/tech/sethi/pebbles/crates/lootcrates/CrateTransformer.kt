@@ -44,7 +44,10 @@ class CrateTransformer(val crateName: String, val player: PlayerEntity) {
 
         player.sendMessage(Text.literal("Giving $crateName to ${player.name.string}"), false)
 
-        player.giveItemStack(crateItemStack)
+        server?.execute { ->
+            player.giveItemStack(crateItemStack)
+        }
+
         val message = "Successfully gave $crateName to ${player.name.string}"
         ParseableMessage(message, player as ServerPlayerEntity, "placeholder").send()
     }
@@ -105,7 +108,9 @@ class CrateTransformer(val crateName: String, val player: PlayerEntity) {
                 }
                 setLore(crateKeyItemStack, parsedCrateKeyLore)
 
-                player.inventory.offerOrDrop(crateKeyItemStack)
+                server?.execute { ->
+                    player.inventory.offerOrDrop(crateKeyItemStack)
+                }
 
                 val message = "You received $amount ${crateConfig.crateKey.name} for ${crateConfig.crateName}!"
                 ParseableMessage(message, player, "placeholder").send()
