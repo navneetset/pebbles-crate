@@ -15,9 +15,16 @@ class CrateDataManager {
     private val CRATE_DATA_FILE = Paths.get("config", "pebbles-crate", "crate_data.json").toString()
     private val GSON: Gson = GsonBuilder().setPrettyPrinting().create()
     private val CRATE_DATA_TYPE: Type = object : TypeToken<Map<String, String>>() {}.type
+    val  CRATE_DATA =  HashMap<BlockPos, String>();
 
+    fun getCrateData(): HashMap<BlockPos, String> {
+        if (CRATE_DATA.isEmpty() || CRATE_DATA.size == 0) {
+            CRATE_DATA.putAll(loadCrateData())
+        }
+        return CRATE_DATA
+    }
 
-    fun loadCrateData(): Map<BlockPos, String> {
+    fun loadCrateData(): HashMap<BlockPos, String> {
         val crateData = HashMap<BlockPos, String>()
 
         try {

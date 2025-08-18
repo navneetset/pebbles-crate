@@ -42,7 +42,8 @@ object PebblesCrate : ModInitializer {
     val cratesInUse = Collections.synchronizedSet(mutableSetOf<BlockPos>())
     val playerCooldowns: MutableMap<UUID, Long> = Collections.synchronizedMap(mutableMapOf())
     val tasks: MutableMap<Long, MutableList<Task>> = mutableMapOf()
-
+    val crateDataManager: CrateDataManager = CrateDataManager();
+    val blacklistConfigManager: BlacklistConfigManager = BlacklistConfigManager()
     var server: MinecraftServer? = null
 
     var nbtOps: RegistryOps<NbtElement>? = null
@@ -64,8 +65,7 @@ object PebblesCrate : ModInitializer {
                 return@UseBlockCallback ActionResult.PASS
             }
 
-            val crateDataManager = CrateDataManager()
-            val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
+            val savedCrateData = crateDataManager.getCrateData()
 
             // Check if the clicked position is in the crate data
             if (hitResult.blockPos in savedCrateData) {
@@ -162,8 +162,7 @@ object PebblesCrate : ModInitializer {
 
         PlayerBlockBreakEvents.AFTER.register(PlayerBlockBreakEvents.After { _, player, pos, _, _ ->
             // Load the saved crate data
-            val crateDataManager = CrateDataManager()
-            val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
+            val savedCrateData = crateDataManager.getCrateData()
 
             // Check if the broken block position is in the crate data
             if (pos in savedCrateData) {
@@ -194,9 +193,8 @@ object PebblesCrate : ModInitializer {
     }
 
     private fun spawnParticlesForAllCrates(world: ServerWorld) {
-        val crateDataManager = CrateDataManager()
-        val savedCrateData = crateDataManager.loadCrateData()
-        val blacklist = BlacklistConfigManager().getBlacklist()
+        val savedCrateData = crateDataManager.getCrateData()
+        val blacklist = blacklistConfigManager.getBlacklist()
 
         for (pos in savedCrateData.keys) {
             // Skip crates in the blacklist
