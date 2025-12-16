@@ -28,19 +28,22 @@ import tech.sethi.pebbles.crates.particles.CrateParticles
 import tech.sethi.pebbles.crates.util.FloatingPrizeItemEntity
 import tech.sethi.pebbles.crates.util.ParseableMessage
 import tech.sethi.pebbles.crates.util.Task
+import tech.sethi.pebbles.crates.util.WorldBlockPos
 import java.util.*
 import java.util.concurrent.*
 
 
 class CrateEventHandler(
     private val world: World,
-    private val pos: BlockPos,
+    private val worldBlockPos: WorldBlockPos,
     private val player: ServerPlayerEntity,
     private val prizes: List<Prize>,
-    private val cratesInUse: MutableSet<BlockPos>,
+    private val cratesInUse: MutableSet<WorldBlockPos>,
     private val playerCooldowns: MutableMap<UUID, Long>,
     private val crateName: String
 ) {
+    // Extract the BlockPos for convenience
+    private val pos: BlockPos = worldBlockPos.pos
     companion object {
         const val COOLDOWN_TIME = 8000L
     }
@@ -157,7 +160,7 @@ class CrateEventHandler(
                 return
             }
 
-            cratesInUse.add(pos)
+            cratesInUse.add(worldBlockPos)
 
             val animationPrizesCount = 10
             val delayBetweenPrizes = 6L // 300 milliseconds converted to ticks
@@ -187,7 +190,7 @@ class CrateEventHandler(
             }
 
             val removeCrateDelay = finalPrizeDelay + 100 // 5 seconds converted to ticks
-            addTask(world, removeCrateDelay) { cratesInUse.remove(pos) }
+            addTask(world, removeCrateDelay) { cratesInUse.remove(worldBlockPos) }
         }
     }
 

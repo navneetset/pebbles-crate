@@ -32,7 +32,7 @@ class CrateTransformer(val crateName: String, val player: PlayerEntity) {
         val instructions = mutableListOf<Text>()
 
         // add instructions to list
-        instructions.add(Text.literal("Right click a chest/enderchest to").formatted(Formatting.GOLD))
+        instructions.add(Text.literal("Right click any block to").formatted(Formatting.GOLD))
         instructions.add(Text.literal("transform it into a $crateName").formatted(Formatting.GOLD))
         setLore(crateItemStack, instructions)
 

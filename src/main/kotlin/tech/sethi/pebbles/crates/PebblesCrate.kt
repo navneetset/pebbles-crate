@@ -25,6 +25,7 @@ import net.minecraft.util.Hand
 import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3d
+import net.minecraft.world.World
 import org.slf4j.LoggerFactory
 import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
@@ -39,13 +40,21 @@ import java.util.*
 object PebblesCrate : ModInitializer {
     private val logger = LoggerFactory.getLogger("pebbles-crates")
     const val MOD_ID = "pebbles_crate"
-    val cratesInUse = Collections.synchronizedSet(mutableSetOf<BlockPos>())
+    val cratesInUse = Collections.synchronizedSet(mutableSetOf<WorldBlockPos>())
     val playerCooldowns: MutableMap<UUID, Long> = Collections.synchronizedMap(mutableMapOf())
     val tasks: MutableMap<Long, MutableList<Task>> = mutableMapOf()
 
     var server: MinecraftServer? = null
 
     var nbtOps: RegistryOps<NbtElement>? = null
+
+    /**
+     * Gets the world identifier string from a World object.
+     * Format: "namespace:path" (e.g., "minecraft:overworld", "minecraft:the_nether")
+     */
+    fun getWorldId(world: World): String {
+        return world.registryKey.value.toString()
+    }
 
     override fun onInitialize() {
         logger.info("Initializing Pebbles Loot Crates!")
@@ -67,9 +76,13 @@ object PebblesCrate : ModInitializer {
             val crateDataManager = CrateDataManager()
             val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
 
+            // Create a world-aware position for the clicked block
+            val worldId = getWorldId(world)
+            val worldBlockPos = WorldBlockPos(worldId, hitResult.blockPos)
+
             // Check if the clicked position is in the crate data
-            if (hitResult.blockPos in savedCrateData) {
-                var crateName = savedCrateData[hitResult.blockPos]
+            if (worldBlockPos in savedCrateData) {
+                var crateName = savedCrateData[worldBlockPos]
                 val crateConfig = CrateConfigManager.getCrateConfig(crateName!!)
 
                 if (crateConfig != null && crateConfig.screenName != null) {
@@ -98,7 +111,7 @@ object PebblesCrate : ModInitializer {
                             "CrateName"
                         ) == crateConfig.crateName
                     ) {
-                        if (cratesInUse.contains(hitResult.blockPos)) {
+                        if (cratesInUse.contains(worldBlockPos)) {
                             player.sendMessage(
                                 Text.literal("Someone is already using this crate!").formatted(Formatting.RED), false
                             )
@@ -107,7 +120,7 @@ object PebblesCrate : ModInitializer {
 
                         val crateEventHandler = CrateEventHandler(
                             world,
-                            hitResult.blockPos,
+                            worldBlockPos,
                             player as ServerPlayerEntity,
                             crateConfig.prize,
                             cratesInUse,
@@ -145,11 +158,11 @@ object PebblesCrate : ModInitializer {
                 ) {
                     val crateName = heldStack.get(DataComponentTypes.CUSTOM_DATA)?.nbt?.getString("CrateName")
                         ?: return@UseBlockCallback ActionResult.PASS
-                    savedCrateData[hitResult.blockPos] = crateName
+                    savedCrateData[worldBlockPos] = crateName
                     crateDataManager.saveCrateData(savedCrateData)
 
                     player.sendMessage(
-                        Text.literal("Assigned a $crateName crate to the block at ${hitResult.blockPos}")
+                        Text.literal("Assigned a $crateName crate to the block at ${hitResult.blockPos} in ${worldId}")
                             .formatted(Formatting.GRAY), false
                     )
                     return@UseBlockCallback ActionResult.SUCCESS
@@ -160,20 +173,24 @@ object PebblesCrate : ModInitializer {
         })
 
 
-        PlayerBlockBreakEvents.AFTER.register(PlayerBlockBreakEvents.After { _, player, pos, _, _ ->
+        PlayerBlockBreakEvents.AFTER.register(PlayerBlockBreakEvents.After { world, player, pos, _, _ ->
             // Load the saved crate data
             val crateDataManager = CrateDataManager()
             val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
 
+            // Create a world-aware position for the broken block
+            val worldId = getWorldId(world)
+            val worldBlockPos = WorldBlockPos(worldId, pos)
+
             // Check if the broken block position is in the crate data
-            if (pos in savedCrateData) {
+            if (worldBlockPos in savedCrateData) {
                 // Remove the crate data for this position
-                savedCrateData.remove(pos)
+                savedCrateData.remove(worldBlockPos)
                 crateDataManager.saveCrateData(savedCrateData)
 
                 // Send a message to the player for debugging purposes
                 player.sendMessage(
-                    Text.literal("Crate data removed for position: $pos").formatted(Formatting.GRAY), false
+                    Text.literal("Crate data removed for position: $pos in $worldId").formatted(Formatting.GRAY), false
                 )
             }
         })
@@ -198,9 +215,17 @@ object PebblesCrate : ModInitializer {
         val savedCrateData = crateDataManager.loadCrateData()
         val blacklist = BlacklistConfigManager().getBlacklist()
 
-        for (pos in savedCrateData.keys) {
+        // Get the world ID for the current world
+        val currentWorldId = getWorldId(world)
+
+        for (worldBlockPos in savedCrateData.keys) {
+            // Only process crates in this world
+            if (worldBlockPos.worldId != currentWorldId) continue
+
             // Skip crates in the blacklist
-            if (pos in blacklist) continue
+            if (worldBlockPos in blacklist) continue
+
+            val pos = worldBlockPos.pos
             world.getChunk(pos.x shr 4, pos.z shr 4)
 
             val playersNearby =

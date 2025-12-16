@@ -4,6 +4,7 @@ import net.minecraft.component.DataComponentTypes
 import net.minecraft.enchantment.Enchantments
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
+import net.minecraft.item.Items
 import net.minecraft.registry.RegistryKeys
 import net.minecraft.registry.entry.RegistryEntry
 import net.minecraft.screen.GenericContainerScreenHandler
@@ -11,9 +12,11 @@ import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.screen.slot.SlotActionType
 import net.minecraft.text.Text
+import tech.sethi.pebbles.crates.PebblesCrate
 import tech.sethi.pebbles.crates.PebblesCrate.server
 import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
+import tech.sethi.pebbles.crates.util.WorldBlockPos
 
 class ActiveCrateList(syncId: Int, val player: PlayerEntity) :
     GenericContainerScreenHandler(ScreenHandlerType.GENERIC_9X6, syncId, player.inventory, SimpleInventory(9 * 6), 6) {
@@ -34,15 +37,26 @@ class ActiveCrateList(syncId: Int, val player: PlayerEntity) :
     private fun initializeInventory() {
         val blacklist = blacklistManager.getBlacklist()
         for ((index, crateName) in activeCrates.values.withIndex()) {
-            val cratePos = activeCrates.keys.elementAt(index)
-            val blockOnPost = player.world.getBlockState(cratePos).block
-            val crateItem = blockOnPost.asItem().defaultStack
-            crateItem.set(DataComponentTypes.CUSTOM_NAME, crateItem.name.copy().append(" - $crateName"))
-            if (!blacklist.contains(cratePos)) {
+            val worldBlockPos = activeCrates.keys.elementAt(index)
+
+            // Try to get the block from the correct world
+            val world = server?.worlds?.find { PebblesCrate.getWorldId(it) == worldBlockPos.worldId }
+            val crateItem = if (world != null) {
+                val blockOnPos = world.getBlockState(worldBlockPos.pos).block
+                blockOnPos.asItem().defaultStack
+            } else {
+                // World not loaded, show a placeholder
+                Items.BARRIER.defaultStack
+            }
+
+            // Show world info in the name
+            val worldName = worldBlockPos.worldId.substringAfter(":")
+            crateItem.set(DataComponentTypes.CUSTOM_NAME, Text.literal("[$worldName] ${worldBlockPos.pos.x}, ${worldBlockPos.pos.y}, ${worldBlockPos.pos.z} - $crateName"))
+
+            if (!blacklist.contains(worldBlockPos)) {
                 val vanishingEnchant = server!!.worlds.first().registryManager.get(RegistryKeys.ENCHANTMENT)
                     .get(Enchantments.VANISHING_CURSE)
                 crateItem.addEnchantment(RegistryEntry.of(vanishingEnchant), 1)
-
             }
             inventory.setStack(index, crateItem)
         }
@@ -57,13 +71,13 @@ class ActiveCrateList(syncId: Int, val player: PlayerEntity) :
             return
         }
 
-        val cratePos = activeCrates.keys.elementAt(slotIndex)
+        val worldBlockPos = activeCrates.keys.elementAt(slotIndex)
 
         val blacklist = blacklistManager.getBlacklist()
-        if (blacklist.contains(cratePos)) {
-            blacklistManager.removeFromBlacklist(cratePos)
+        if (blacklist.contains(worldBlockPos)) {
+            blacklistManager.removeFromBlacklist(worldBlockPos)
         } else {
-            blacklistManager.addToBlacklist(cratePos)
+            blacklistManager.addToBlacklist(worldBlockPos)
         }
 
         // close and reopen screen
