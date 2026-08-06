@@ -96,7 +96,9 @@ object CrateConfigManager {
                 return@forEach
             }
 
-            val crateName = crateConfig.crateName
+            val repairedConfig = repairNulls(crateConfig, file.name) ?: return@forEach
+
+            val crateName = repairedConfig.crateName
             val existingSource = sourceFiles[crateName]
             if (existingSource != null) {
                 // Last file alphabetically wins, which is what the previous overwrite-on-load did.
@@ -106,7 +108,7 @@ object CrateConfigManager {
             }
 
             sourceFiles[crateName] = file.name
-            crateConfigs[crateName] = crateConfig
+            crateConfigs[crateName] = repairedConfig
         }
 
         val loadedConfigs = crateConfigs.values.toMutableList()
@@ -117,6 +119,42 @@ object CrateConfigManager {
         }
 
         return loadedConfigs
+    }
+
+    /**
+     * Gson bypasses Kotlin constructors, so fields declared non-null can still come back null from a
+     * hand-edited file (e.g. a crateKey with no lore used to NPE in CrateTransformer). Repairs what is
+     * benign, skips what is unusable, warns either way.
+     */
+    @Suppress("SENSELESS_COMPARISON", "USELESS_ELVIS")
+    private fun repairNulls(crateConfig: CrateConfig, fileName: String): CrateConfig? {
+        val key = crateConfig.crateKey
+        if (key.material == null || key.name == null) {
+            logger.warn("[Pebbles-Crates] $fileName crateKey is missing material or name, skipping it")
+            return null
+        }
+        val repairedKey = if (key.lore == null) {
+            logger.warn("[Pebbles-Crates] $fileName crateKey has no lore, using an empty one")
+            key.copy(lore = emptyList())
+        } else key
+
+        val prizes = (crateConfig.prize ?: emptyList()).mapNotNull { prize ->
+            when {
+                prize == null || prize.name == null || prize.material == null -> {
+                    logger.warn("[Pebbles-Crates] $fileName has a prize missing name or material, skipping that prize")
+                    null
+                }
+
+                prize.commands == null -> {
+                    logger.warn("[Pebbles-Crates] $fileName prize '${prize.name}' has no commands and will award nothing")
+                    prize.copy(commands = emptyList())
+                }
+
+                else -> prize
+            }
+        }
+
+        return crateConfig.copy(crateKey = repairedKey, prize = prizes)
     }
 
     /** Logs anything that would silently misbehave at runtime. Never throws - a bad crate must not kill the server. */
