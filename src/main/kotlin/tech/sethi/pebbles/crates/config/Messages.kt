@@ -139,6 +139,14 @@ object Messages {
             "&7Shift + right click: previous sound"
         ),
         "gui.placement.sound-unknown" to "&cnot a known sound",
+        "gui.placement.reward-particle" to "&dReward burst",
+        "gui.placement.reward-particle-value" to "&7Particle: &f{value}",
+        "gui.placement.reward-particle-lore" to listOf(
+            "&7Left click to see it.",
+            "&7Shift + left click: next particle",
+            "&7Shift + right click: previous particle"
+        ),
+        "gui.placement.reward-count" to "&dBurst particles: &f{value}",
         "gui.placement.volume" to "&eVolume: &f{value}",
         "gui.placement.pitch" to "&ePitch: &f{value}",
         "gui.placement.steps" to "&eRoll steps: &f{value}",

@@ -18,6 +18,9 @@ data class ResolvedStyle(
     val particleId: String?,
     val shuffleSound: SoundSettings,
     val rewardSounds: List<SoundSettings>,
+    /** The particle thrown when the prize lands, and how many of it. */
+    val rewardParticleId: String,
+    val rewardParticleCount: Int,
     val steps: Int,
     val ticksPerStep: Long,
     val finalScale: Float
@@ -38,6 +41,7 @@ data class ResolvedStyle(
 object StyleResolver {
     fun resolve(placement: CrateStyle?, crate: CrateStyle?): ResolvedStyle {
         val animation = GlobalConfigManager.animation
+        val particles = GlobalConfigManager.particles
         val style = particleStyle(placement, crate)
 
         return ResolvedStyle(
@@ -45,6 +49,9 @@ object StyleResolver {
             particleId = particleId(style, placement, crate),
             shuffleSound = sound(placement?.shuffleSound, crate?.shuffleSound, animation.shuffleSound),
             rewardSounds = rewardSounds(placement?.rewardSound, crate?.rewardSound),
+            rewardParticleId = knownParticleId(placement?.rewardParticle) ?: knownParticleId(crate?.rewardParticle)
+            ?: particles.reward,
+            rewardParticleCount = placement?.rewardParticleCount ?: crate?.rewardParticleCount ?: particles.rewardCount,
             steps = placement?.animationSteps ?: crate?.animationSteps ?: animation.steps,
             ticksPerStep = (placement?.ticksPerStep ?: crate?.ticksPerStep)?.toLong() ?: animation.ticksPerStep,
             finalScale = (placement?.finalScale ?: crate?.finalScale)?.toFloat() ?: animation.finalScale
@@ -107,4 +114,6 @@ object StyleResolver {
     }
 
     private fun knownSoundId(id: String?): String? = id?.takeIf { GlobalConfigManager.soundEvent(it) != null }
+
+    private fun knownParticleId(id: String?): String? = id?.takeIf { GlobalConfigManager.particleEffect(it) != null }
 }

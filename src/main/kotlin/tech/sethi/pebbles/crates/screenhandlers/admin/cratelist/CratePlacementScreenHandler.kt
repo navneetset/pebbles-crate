@@ -27,6 +27,7 @@ import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateConfig
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
+import tech.sethi.pebbles.crates.particles.CrateParticles
 import tech.sethi.pebbles.crates.screenhandlers.keys.KeyIcons
 import tech.sethi.pebbles.crates.util.PermissionUtil
 import tech.sethi.pebbles.crates.util.WorldBlockPos
@@ -151,6 +152,21 @@ class CratePlacementScreenHandler(
                 ACTION_SCALE
             )
         )
+
+        inventory.setStack(
+            REWARD_PARTICLE_SLOT, rewardParticleItem(resolved, scoped, placementStyle, crateStyle)
+        )
+
+        inventory.setStack(
+            REWARD_COUNT_SLOT, adjustItem(
+                Items.BLAZE_POWDER,
+                Messages.text("gui.placement.reward-count", "value" to "${resolved.rewardParticleCount}"),
+                scoped?.rewardParticleCount?.toString(),
+                StyleResolver.sourceOf(placementStyle?.rewardParticleCount, crateStyle?.rewardParticleCount),
+                "$COUNT_STEP",
+                ACTION_REWARD_COUNT
+            )
+        )
     }
 
     private fun infoItem(crateName: String, crateConfig: CrateConfig?): ItemStack {
@@ -220,6 +236,24 @@ class CratePlacementScreenHandler(
             stack, setLine(scoped?.particleStyle) + sourceLine(
                 StyleResolver.sourceOf(placement?.particleStyle, crate?.particleStyle)
             ) + Messages.list("gui.placement.cycle-lore")
+        )
+        return stack
+    }
+
+    /** The win-moment burst. Like a sound item, a plain click shows it rather than changing it. */
+    private fun rewardParticleItem(
+        resolved: ResolvedStyle, scoped: CrateStyle?, placement: CrateStyle?, crate: CrateStyle?
+    ): ItemStack {
+        val stack = KeyIcons.button(
+            Items.FIREWORK_ROCKET, Messages.text("gui.placement.reward-particle"), action = ACTION_REWARD_PARTICLE
+        )
+
+        setLore(
+            stack, listOf(
+                Messages.text("gui.placement.reward-particle-value", "value" to resolved.rewardParticleId)
+            ) + setLine(scoped?.rewardParticle) + sourceLine(
+                StyleResolver.sourceOf(placement?.rewardParticle, crate?.rewardParticle)
+            ) + Messages.list("gui.placement.reward-particle-lore")
         )
         return stack
     }
@@ -338,6 +372,9 @@ class CratePlacementScreenHandler(
             ACTION_REWARD_VOLUME -> return adjustSound(player, shift, forward, shuffle = false, volume = true)
             ACTION_REWARD_PITCH -> return adjustSound(player, shift, forward, shuffle = false, volume = false)
 
+            ACTION_REWARD_PARTICLE -> return rewardParticleClick(player, shift, forward)
+            ACTION_REWARD_COUNT -> return adjustRewardCount(player, shift, forward)
+
             ACTION_STEPS -> return adjustSteps(player, shift, forward)
             ACTION_TICKS -> return adjustTicks(player, shift, forward)
             ACTION_SCALE -> return adjustScale(player, shift, forward)
@@ -424,6 +461,28 @@ class CratePlacementScreenHandler(
             val next = rounded(base + delta).coerceIn(CrateStyles.MIN_PITCH, CrateStyles.MAX_PITCH)
             editSound(player, shuffle) { it.copy(pitch = next) }
         }
+    }
+
+    /**
+     * The burst is the one effect an admin cannot see from the screen, so a plain click throws it at
+     * them - and, as with the sounds, walking the list is the shifted click so browsing it is quiet.
+     */
+    private fun rewardParticleClick(player: PlayerEntity, shift: Boolean, forward: Boolean) {
+        if (!shift) return CrateParticles.previewReward(admin, resolvedStyle())
+
+        val current = scopedStyle()?.rewardParticle
+        val next = cycled(REWARD_PARTICLE_PRESETS, REWARD_PARTICLE_PRESETS.firstOrNull { it == current }, forward)
+        edit(player) { it.copy(rewardParticle = next) }
+    }
+
+    private fun adjustRewardCount(player: PlayerEntity, shift: Boolean, forward: Boolean) {
+        if (shift && forward) return edit(player) { it.copy(rewardParticleCount = null) }
+
+        val base = scopedStyle()?.rewardParticleCount ?: resolvedStyle().rewardParticleCount
+        val next = (base + if (forward) COUNT_STEP else -COUNT_STEP).coerceIn(
+            CrateStyles.MIN_REWARD_COUNT, CrateStyles.MAX_REWARD_COUNT
+        )
+        edit(player) { it.copy(rewardParticleCount = next) }
     }
 
     private fun adjustSteps(player: PlayerEntity, shift: Boolean, forward: Boolean) {
@@ -522,10 +581,13 @@ class CratePlacementScreenHandler(
         private const val STEPS_SLOT = 29
         private const val TICKS_SLOT = 31
         private const val SCALE_SLOT = 33
+        private const val REWARD_PARTICLE_SLOT = 38
+        private const val REWARD_COUNT_SLOT = 40
         private const val BACK_SLOT = 45
 
         private const val SOUND_STEP = 0.1f
         private const val SCALE_STEP = 0.25
+        private const val COUNT_STEP = 25
         private const val GUI_MIN_SCALE = 0.5
         private const val GUI_MAX_SCALE = 4.0
 
@@ -540,6 +602,8 @@ class CratePlacementScreenHandler(
         private const val ACTION_REWARD = "placement_reward"
         private const val ACTION_REWARD_VOLUME = "placement_reward_volume"
         private const val ACTION_REWARD_PITCH = "placement_reward_pitch"
+        private const val ACTION_REWARD_PARTICLE = "placement_reward_particle"
+        private const val ACTION_REWARD_COUNT = "placement_reward_count"
         private const val ACTION_STEPS = "placement_steps"
         private const val ACTION_TICKS = "placement_ticks"
         private const val ACTION_SCALE = "placement_scale"
@@ -567,6 +631,21 @@ class CratePlacementScreenHandler(
             "minecraft:entity.firework_rocket.twinkle",
             "minecraft:item.totem.use",
             "minecraft:ui.button.click"
+        )
+
+        /** Particles that read as a win at a distance. Same deal as the sounds: any other id can be set by hand. */
+        private val REWARD_PARTICLE_PRESETS: List<String?> = listOf(
+            null,
+            "minecraft:totem_of_undying",
+            "minecraft:firework",
+            "minecraft:sculk_soul",
+            "minecraft:end_rod",
+            "minecraft:heart",
+            "minecraft:soul",
+            "minecraft:flame",
+            "minecraft:wax_off",
+            "minecraft:electric_spark",
+            "minecraft:poof"
         )
 
         fun open(player: ServerPlayerEntity, worldPos: WorldBlockPos, returnPage: Int) {

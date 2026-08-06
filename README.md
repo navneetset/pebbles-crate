@@ -321,6 +321,8 @@ Add a `style` object to the crate's JSON file. Every field is optional.
     "particleType": "minecraft:heart",
     "shuffleSound": { "id": "minecraft:block.note_block.bell", "volume": 0.6, "pitch": 1.4 },
     "rewardSound": { "id": "minecraft:entity.player.levelup", "volume": 0.8, "pitch": 1.0 },
+    "rewardParticle": "minecraft:totem_of_undying",
+    "rewardParticleCount": 80,
     "animationSteps": 14,
     "ticksPerStep": 4,
     "finalScale": 2.0
@@ -331,10 +333,12 @@ Add a `style` object to the crate's JSON file. Every field is optional.
 
 | Field | Range | Meaning |
 |---|---|---|
-| `particleStyle` | `cross-spiral`, `spiral`, `sparkle`, `heart`, `none` | The idle pattern above the crate. `none` draws nothing |
+| `particleStyle` | one of the patterns below, or `none` | The idle pattern above the crate. `none` draws nothing |
 | `particleType` | any particle id | Overrides the particle that style draws |
 | `shuffleSound` | `{ id, volume, pitch }` | Played on every roll step. Volume `0`–`10`, pitch `0.5`–`2.0` |
 | `rewardSound` | `{ id, volume, pitch }` | Replaces `animation.rewardSounds` for this crate. One sound, not a list |
+| `rewardParticle` | any particle id | The burst thrown when a prize is won, in place of `particles.reward` |
+| `rewardParticleCount` | `0`–`500` | How many of it, in place of `particles.rewardCount`. `0` is no burst |
 | `animationSteps` | `0`–`200` | How many prizes flick past |
 | `ticksPerStep` | `1`–`200` | Ticks between them |
 | `finalScale` | `0.1`–`10.0` | Size of the won prize |
@@ -347,11 +351,16 @@ Each pattern has its own default particle, used when `particleType` is absent:
 | `spiral` | `minecraft:firework` | The same, wound tighter |
 | `sparkle` | `minecraft:end_rod` | A scatter above the crate, every 2 seconds |
 | `heart` | `minecraft:heart` | A scatter around the crate, every 1.5 seconds |
+| `double-helix` | `minecraft:firework` | Two strands half a turn apart, winding up and starting over |
+| `orbit` | `minecraft:end_rod` | Three points circling at a fixed height, one turn every 3 seconds |
+| `column` | `minecraft:soul_fire_flame` | A column climbing out of the block's top face |
+| `enchant` | `minecraft:enchant` | Enchanting-table glyphs drifting in and down onto the crate |
+| `rain` | `minecraft:falling_water` | Drops let go above the crate and left to fall |
 | `none` | — | No idle particles at all |
 
-`animation.holdTicks`, `rewardSoundRepeats`, `particles.reward` and the particle radius stay global.
-`config.json` can name several reward sounds that play together; a `rewardSound` override replaces
-that chord with the single sound it names, merged field by field over the first of them.
+`animation.holdTicks`, `rewardSoundRepeats` and the particle radius stay global. `config.json` can
+name several reward sounds that play together; a `rewardSound` override replaces that chord with the
+single sound it names, merged field by field over the first of them.
 
 ### On one placed crate
 
@@ -382,15 +391,18 @@ dimension-less keys from very old versions are still migrated to the overworld o
   over any style, including one that would otherwise draw particles.
 - **Editing: this placement / crate type** — the scope switch, lime for the single block and orange
   for every crate of that type. Everything below is written to whichever is shown.
-- **Particle style, sounds, animation** — one item each.
+- **Particle style, sounds, animation, reward burst** — one item each.
 
 The interaction is the same everywhere: **left click** is next or `+`, **right click** is previous
-or `−`, **shift + left click** clears the value back to inherit. Sound items are the exception — a
-plain click *plays* the sound as the crate would, so shift + left and shift + right walk the preset
-list instead. Every item's lore says which of these apply to it, what the value in force is, where
-that value comes from, and what the layer being edited has set.
+or `−`, **shift + left click** clears the value back to inherit. Sound items and the reward burst
+are the exception — a plain click *plays* the sound, or throws the burst at your feet, as the crate
+would; so shift + left and shift + right walk the preset list instead. Every item's lore says which
+of these apply to it, what the value in force is, where that value comes from, and what the layer
+being edited has set.
 
-The sound presets are: `block.note_block.banjo`, `.bell`, `.harp`, `.pling`, `.bit`,
+The burst presets are `totem_of_undying`, `firework`, `sculk_soul`, `end_rod`, `heart`, `soul`,
+`flame`, `wax_off`, `electric_spark`, `poof`, plus *inherit*; the preview is capped at 50 particles
+however high the count is set. The sound presets are: `block.note_block.banjo`, `.bell`, `.harp`, `.pling`, `.bit`,
 `block.amethyst_block.chime`, `block.ender_chest.open`, `block.beacon.activate`,
 `entity.experience_orb.pickup`, `entity.player.levelup`, `entity.firework_rocket.twinkle`,
 `item.totem.use`, `ui.button.click`, plus *inherit*. Any other sound id — vanilla or from another
