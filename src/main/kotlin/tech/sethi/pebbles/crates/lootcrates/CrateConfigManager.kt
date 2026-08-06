@@ -2,17 +2,25 @@ package tech.sethi.pebbles.crates.lootcrates
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import net.minecraft.registry.Registries
 import net.minecraft.util.Identifier
 import org.slf4j.LoggerFactory
 import tech.sethi.pebbles.crates.PebblesCrate
+import tech.sethi.pebbles.crates.config.CrateStyle
+import tech.sethi.pebbles.crates.config.CrateStyles
 import java.io.File
 
 object CrateConfigManager {
     private val logger = LoggerFactory.getLogger("pebbles-crates")
     private val gson: Gson = GsonBuilder().create()
+    private val prettyGson: Gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
     private val configDirectory = File("config/pebbles-crate/crates")
     private val crateConfigs = LinkedHashMap<String, CrateConfig>()
+
+    /** Which file each crate was read from, so an edit is written back where it came from. */
+    private val sourceFiles = LinkedHashMap<String, String>()
 
     /** Characters that are illegal in a Windows filename, plus the path separators. */
     private val ILLEGAL_FILENAME_CHARS = Regex("""[\\/:*?"<>|\x00-\x1F]""")
@@ -63,14 +71,52 @@ object CrateConfigManager {
         saveCrateConfigs(crateConfigs.values.toList())
     }
 
+    /** Which file a crate was read from, for the admin screen. */
+    fun sourceFileOf(crateName: String): String? {
+        ensureLoaded()
+        return sourceFiles[crateName]
+    }
+
+    /**
+     * Changes just the style of a crate type and writes it back. Null clears the overrides.
+     *
+     * The file is edited rather than regenerated from the loaded model: crate JSON is hand-written
+     * and web-editor-written alike, and re-serialising it would quietly drop every key this mod does
+     * not model and reformat the rest. Only the `style` member is touched.
+     */
+    fun setCrateStyle(crateName: String, style: CrateStyle?): Boolean {
+        ensureLoaded()
+        val existing = crateConfigs[crateName] ?: return false
+        val cleaned = style?.orNull()
+        crateConfigs[crateName] = existing.copy(style = cleaned)
+
+        val file = File(configDirectory, sourceFiles[crateName] ?: "${sanitizeFileName(crateName)}.json")
+
+        return try {
+            val root = if (file.exists()) JsonParser.parseString(file.readText()) as? JsonObject else null
+            if (root == null) {
+                // No readable file to edit: write the crate out whole rather than lose the change.
+                file.parentFile?.mkdirs()
+                file.writeText(prettyGson.toJson(crateConfigs[crateName]))
+            } else {
+                if (cleaned == null) root.remove("style") else root.add("style", prettyGson.toJsonTree(cleaned))
+                file.writeText(prettyGson.toJson(root))
+            }
+            sourceFiles[crateName] = file.name
+            true
+        } catch (e: Exception) {
+            logger.warn("[Pebbles-Crates] Could not save the style of crate '$crateName' to ${file.name}: ${e.message}")
+            false
+        }
+    }
+
     fun loadCrateConfigs(): MutableList<CrateConfig> {
         if (!configDirectory.exists()) {
             configDirectory.mkdirs()
         }
 
-        val sourceFiles = mutableMapOf<String, String>()
-
         crateConfigs.clear()
+        sourceFiles.clear()
         loaded = true
 
         // Sorted so that a duplicate crateName always resolves to the same winner across restarts.
@@ -154,11 +200,15 @@ object CrateConfigManager {
             }
         }
 
-        return crateConfig.copy(crateKey = repairedKey, prize = prizes)
+        return crateConfig.copy(
+            crateKey = repairedKey, style = CrateStyles.sanitize(crateConfig.style, fileName), prize = prizes
+        )
     }
 
     /** Logs anything that would silently misbehave at runtime. Never throws - a bad crate must not kill the server. */
     private fun validate(crateConfig: CrateConfig, fileName: String) {
+        CrateStyles.warnUnknownIds(crateConfig.style, "$fileName style")
+
         if (!itemExists(crateConfig.crateKey.material)) {
             logger.warn(
                 "[Pebbles-Crates] $fileName: crate key material '${crateConfig.crateKey.material}' " + "does not resolve to an item, the key will be air"
@@ -225,6 +275,12 @@ data class CrateConfig(
      * which is what keeps every crate file written before this feature existed valid as-is.
      */
     val virtualKey: Boolean? = null,
+    /**
+     * How every crate of this type looks and sounds. Absent (null), and every field inside it,
+     * inherits config.json. The web editor does not know about this field yet; a config it has
+     * round-tripped simply comes back without it, which reads as "inherit everything".
+     */
+    val style: CrateStyle? = null,
     var prize: List<Prize>,
 )
 

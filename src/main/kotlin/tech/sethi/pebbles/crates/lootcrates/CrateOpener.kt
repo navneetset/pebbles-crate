@@ -4,6 +4,7 @@ import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.world.World
 import tech.sethi.pebbles.crates.PebblesCrate
 import tech.sethi.pebbles.crates.config.Messages
+import tech.sethi.pebbles.crates.config.StyleResolver
 import tech.sethi.pebbles.crates.keys.KeyProvider
 import tech.sethi.pebbles.crates.keys.KeyProviders
 import tech.sethi.pebbles.crates.util.WorldBlockPos
@@ -41,7 +42,8 @@ object CrateOpener {
             crateConfig.prize,
             PebblesCrate.cratesInUse,
             PebblesCrate.playerCooldowns,
-            displayName
+            displayName,
+            StyleResolver.at(worldBlockPos, crateConfig)
         )
 
         // Reports the remaining cooldown to the player itself.

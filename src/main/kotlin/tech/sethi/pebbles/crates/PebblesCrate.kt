@@ -43,7 +43,11 @@ object PebblesCrate : ModInitializer {
     /** How often the stale-state sweep runs, in ticks. */
     private const val SWEEP_INTERVAL_TICKS = 100L
 
-    /** Crates currently mid-roll, mapped to the millisecond their animation started. */
+    /**
+     * Crates currently mid-roll, mapped to the millisecond after which their animation cannot still
+     * be running. Each roll works its own expiry out from the animation it was actually given, so a
+     * crate with a longer animation than config.json's is never swept out from under itself.
+     */
     val cratesInUse: MutableMap<WorldBlockPos, Long> = ConcurrentHashMap()
     val playerCooldowns: MutableMap<UUID, Long> = ConcurrentHashMap()
 
@@ -225,7 +229,7 @@ object PebblesCrate : ModInitializer {
     private fun sweepStaleState() {
         val now = System.currentTimeMillis()
 
-        val freed = cratesInUse.entries.removeIf { now - it.value > GlobalConfigManager.maxAnimationMillis }
+        val freed = cratesInUse.entries.removeIf { now > it.value }
         if (freed) {
             logger.warn("[Pebbles-Crates] Released a crate whose roll animation never finished")
         }
@@ -260,10 +264,14 @@ object PebblesCrate : ModInitializer {
             // Never load the chunk just to draw particles - a crate nobody can see does not need them
             if (!world.isChunkLoaded(pos.x shr 4, pos.z shr 4)) continue
 
+            // Resolved once per crate rather than once per player: the pattern a crate draws is the
+            // same for everyone watching it.
+            val idle = CrateParticles.idleParticlesFor(worldBlockPos) ?: continue
+
             for (player in players) {
                 // Only players within the configured radius of the crate block get the particles
                 if (player.squaredDistanceTo(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5) <= radiusSquared) {
-                    CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
+                    CrateParticles.spawnIdleParticles(player, pos, world, idle)
                 }
             }
         }

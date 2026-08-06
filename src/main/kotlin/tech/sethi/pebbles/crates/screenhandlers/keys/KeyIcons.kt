@@ -20,7 +20,7 @@ import tech.sethi.pebbles.crates.util.ParseableName
 import tech.sethi.pebbles.crates.util.setLore
 import java.util.UUID
 
-/** The stacks the key screens are built from, so all three of them look and behave the same. */
+/** The stacks the mod's screens are built from, so all of them look and behave the same. */
 object KeyIcons {
     /**
      * How a GUI icon remembers which crate it stands for. Deliberately *not* the `CrateName` a real

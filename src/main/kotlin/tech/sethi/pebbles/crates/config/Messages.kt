@@ -94,8 +94,67 @@ object Messages {
         "gui.crates.web-editor" to "&6Configure Prize (Web Editor)",
         "gui.crates.web-editor-hint" to "&6To edit the config on the web UI, navigate to: ",
         "gui.crates.back" to "&cBack",
-        "gui.activecrates.title" to "Blacklist Particles",
+        "gui.activecrates.title" to "Placed Crates",
         "gui.activecrates.entry" to "&f[{world}] {x}, {y}, {z} - {crate_name}",
+        "gui.activecrates.entry-lore" to listOf("&7Left click to open its settings."),
+
+        // One placed crate's settings
+        "gui.placement.title" to "Crate Settings",
+        "gui.placement.info" to "&6{crate_name}",
+        "gui.placement.info-lore" to listOf(
+            "&7World: &f{world}",
+            "&7Position: &f{x}, {y}, {z}",
+            "&7Keys: &f{key_mode}",
+            "&7Config file: &f{file}"
+        ),
+        "gui.placement.keys.virtual" to "virtual",
+        "gui.placement.keys.physical" to "physical",
+        "gui.placement.keys.inherit" to "inherit ({effective})",
+        "gui.placement.missing" to "&cThis block is no longer a crate.",
+        "gui.placement.crate-missing" to "&cCrate '{crate_name}' has no config any more, only the particle switch works.",
+        "gui.placement.teleport" to "&bTeleport here",
+        "gui.placement.teleport-lore" to listOf("&7Left click to stand at this crate."),
+        "gui.placement.teleport-failed" to "&cThat crate's world is not loaded.",
+        "gui.placement.teleported" to "&7Teleported to the {crate_name} crate in {world}.",
+        "gui.placement.particles-on" to "&aParticles here: on",
+        "gui.placement.particles-off" to "&cParticles here: off",
+        "gui.placement.particles-lore" to listOf(
+            "&7Left click to turn the idle particles", "&7at this one crate on or off."
+        ),
+        "gui.placement.scope.placement" to "&aEditing: this placement",
+        "gui.placement.scope.crate" to "&6Editing: crate type",
+        "gui.placement.scope-lore" to listOf(
+            "&7Left click to switch between this one",
+            "&7crate block and every {crate_name} crate.",
+            "&7Everything below is written to whichever",
+            "&7of the two is shown here."
+        ),
+        "gui.placement.style" to "&dParticle style: &f{value}",
+        "gui.placement.sound.shuffle" to "&eShuffle sound",
+        "gui.placement.sound.reward" to "&eReward sound",
+        "gui.placement.sound-value" to "&7Sound: &f{value}",
+        "gui.placement.sound-lore" to listOf(
+            "&7Left click to hear it.",
+            "&7Shift + left click: next sound",
+            "&7Shift + right click: previous sound"
+        ),
+        "gui.placement.sound-unknown" to "&cnot a known sound",
+        "gui.placement.volume" to "&eVolume: &f{value}",
+        "gui.placement.pitch" to "&ePitch: &f{value}",
+        "gui.placement.steps" to "&eRoll steps: &f{value}",
+        "gui.placement.ticks" to "&eTicks per step: &f{value}",
+        "gui.placement.scale" to "&ePrize scale: &f{value}",
+        "gui.placement.cycle-lore" to listOf("&7Left click: next", "&7Right click: previous"),
+        "gui.placement.adjust-lore" to listOf(
+            "&7Left click: +{step}", "&7Right click: -{step}", "&7Shift + left click: inherit"
+        ),
+        "gui.placement.set-here" to "&7Set: &f{value}",
+        "gui.placement.inherited" to "&7Set: &8inherit",
+        "gui.placement.source.placement" to "&7Using: &athis placement",
+        "gui.placement.source.crate" to "&7Using: &6the crate type",
+        "gui.placement.source.global" to "&7Using: &fconfig.json",
+        "gui.placement.inherit" to "inherit",
+        "gui.placement.save-failed" to "&cCould not save that change, see the server log.",
 
         // Key wallet screens
         "gui.keys.own-title" to "Your Crate Keys",

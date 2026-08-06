@@ -13,7 +13,6 @@ import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.ChunkPos
 import net.minecraft.world.World
 import org.joml.Vector3f
-import tech.sethi.pebbles.crates.config.GlobalConfigManager
 import tech.sethi.pebbles.crates.impl.ItemDisplayEntityImpl
 
 /**
@@ -30,6 +29,13 @@ class RollItemDisplayEntity(
     world: ServerWorld,
     private val viewer: ServerPlayerEntity,
     cratePos: BlockPos,
+    /** How large the won prize is shown, from the crate's resolved style. */
+    private val finalScale: Float,
+    /**
+     * Backstop lifetime. Passed in rather than read from config.json so a crate whose own animation
+     * runs longer than the configured one cannot have its display vanish part-way through the roll.
+     */
+    private val maxLifetimeTicks: Int,
 ) : ItemDisplayEntity(EntityType.ITEM_DISPLAY, world) {
 
     /**
@@ -70,10 +76,9 @@ class RollItemDisplayEntity(
 
     /** The prize the player actually won, shown at the configured scale rather than the rolling one. */
     fun showFinalPrize(stack: ItemStack) {
-        val scale = GlobalConfigManager.animation.finalScale
         display.`pebbles_crates$publicSetStack`(stack)
         display.`pebbles_crates$publicSetTransformation`(
-            AffineTransformation(null, null, Vector3f(scale, scale, scale), null)
+            AffineTransformation(null, null, Vector3f(finalScale, finalScale, finalScale), null)
         )
     }
 
@@ -83,7 +88,7 @@ class RollItemDisplayEntity(
         ticksAlive++
         // Nothing should keep this alive that long; if the task that discards it never ran, the
         // entity still cleans itself up instead of hovering over the crate forever.
-        if (ticksAlive > GlobalConfigManager.animation.maxLifetimeTicks) {
+        if (ticksAlive > maxLifetimeTicks) {
             discard()
             return
         }

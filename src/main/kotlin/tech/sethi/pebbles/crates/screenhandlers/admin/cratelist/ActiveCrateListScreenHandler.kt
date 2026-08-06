@@ -10,21 +10,24 @@ import net.minecraft.registry.RegistryKeys
 import net.minecraft.registry.entry.RegistryEntry
 import net.minecraft.screen.GenericContainerScreenHandler
 import net.minecraft.screen.ScreenHandlerType.GENERIC_9X6
-import net.minecraft.screen.SimpleNamedScreenHandlerFactory
 import net.minecraft.screen.slot.SlotActionType
+import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Text
 import tech.sethi.pebbles.crates.PebblesCrate
 import tech.sethi.pebbles.crates.PebblesCrate.server
 import tech.sethi.pebbles.crates.config.Messages
 import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
+import tech.sethi.pebbles.crates.lootcrates.CratePlacement
 import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
 import tech.sethi.pebbles.crates.util.WorldBlockPos
+import tech.sethi.pebbles.crates.util.setLore
 
 class ActiveCrateList(syncId: Int, val player: PlayerEntity, private var page: Int = 0) :
     GenericContainerScreenHandler(GENERIC_9X6, syncId, player.inventory, SimpleInventory(9 * 6), 6) {
 
     // Snapshot so the slot indices stay stable while the screen is open
-    private val activeCrates: List<Map.Entry<WorldBlockPos, String>> = CrateDataManager.snapshot().entries.toList()
+    private val activeCrates: List<Map.Entry<WorldBlockPos, CratePlacement>> =
+        CrateDataManager.snapshot().entries.toList()
     private val pageCount = ((activeCrates.size - 1) / CRATES_PER_PAGE + 1).coerceAtLeast(1)
 
     init {
@@ -49,7 +52,8 @@ class ActiveCrateList(syncId: Int, val player: PlayerEntity, private var page: I
                 continue
             }
 
-            val (worldBlockPos, crateName) = activeCrates[index]
+            val (worldBlockPos, placement) = activeCrates[index]
+            val crateName = placement.name
 
             // Try to get the block from the correct world. Asking for a block in a chunk that is not
             // in memory would load - and if need be generate - it right there on the tick thread, up
@@ -77,6 +81,8 @@ class ActiveCrateList(syncId: Int, val player: PlayerEntity, private var page: I
                     "crate_name" to crateName
                 )
             )
+
+            setLore(crateItem, Messages.list("gui.activecrates.entry-lore"))
 
             val enchantmentRegistry = world?.registryManager?.get(RegistryKeys.ENCHANTMENT)
             if (!blacklist.contains(worldBlockPos) && enchantmentRegistry != null) {
@@ -140,18 +146,10 @@ class ActiveCrateList(syncId: Int, val player: PlayerEntity, private var page: I
         val crateIndex = page * CRATES_PER_PAGE + slotIndex
         val worldBlockPos = activeCrates.getOrNull(crateIndex)?.key ?: return
 
-        val blacklist = BlacklistConfigManager.getBlacklist()
-        if (blacklist.contains(worldBlockPos)) {
-            BlacklistConfigManager.removeFromBlacklist(worldBlockPos)
-        } else {
-            BlacklistConfigManager.addToBlacklist(worldBlockPos)
-        }
-
-        // Reopen on the same page; opening a screen closes the one already up.
-        val reopenPage = page
-        player.openHandledScreen(SimpleNamedScreenHandlerFactory({ syncId, _, p ->
-            ActiveCrateList(syncId, p, reopenPage)
-        }, Messages.text("gui.activecrates.title")))
+        // Everything a single crate can be told to do now lives on its own screen, particles
+        // included; this list only picks which crate that screen is about.
+        val serverPlayer = player as? ServerPlayerEntity ?: return
+        CratePlacementScreenHandler.open(serverPlayer, worldBlockPos, page)
     }
 
     companion object {

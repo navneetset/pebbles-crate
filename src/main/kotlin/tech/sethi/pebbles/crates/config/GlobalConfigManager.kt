@@ -58,12 +58,10 @@ object GlobalConfigManager {
 
     /**
      * How long a crate may stay marked in-use before the stale-state sweep frees it: the whole roll
-     * plus a wide margin, so retuning the animation can never leave the sweep firing mid-roll.
+     * it was actually given plus a wide margin, so neither retuning the animation nor a per-crate
+     * override can leave the sweep firing mid-roll.
      */
-    val maxAnimationMillis: Long
-        get() = with(config.animation) {
-            (ticksPerStep * (steps + 1) + holdTicks) * 50 + 10_000L
-        }
+    fun maxAnimationMillis(style: ResolvedStyle): Long = style.rollTicks * 50 + 10_000L
 
     @Synchronized
     fun load(): GlobalConfig {

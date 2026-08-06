@@ -90,6 +90,7 @@ files declare the same `crateName` the later one wins and a warning is logged.
 | `screenName` | string | no | The title shown on the preview screen. Purely cosmetic; defaults to `crateName`. |
 | `crateKey` | object | yes | The item that opens this crate. |
 | `virtualKey` | boolean | no | Per-crate override for [virtual keys](#virtual-keys). Omit it to follow the global setting. |
+| `style` | object | no | Particles, sounds and animation for this crate — see [Per-crate style overrides](#per-crate-style-overrides). Omit it to follow `config.json`. |
 | `prize` | array | yes | The prize pool. A crate with an empty pool cannot be opened. |
 
 ### Key fields (`crateKey`)
@@ -196,7 +197,7 @@ level 2 when LuckPerms is not installed. The console and command blocks always h
 | `/padmin givekey <players> <amount> <crateName>` | `pebbles.admin.crate` | Gives keys, physical or virtual depending on how the crate is configured |
 | `/padmin givekey physical <players> <amount> <crateName>` | `pebbles.admin.crate` | Forces a real key item. Only exists when virtual keys are enabled |
 | `/padmin givekey virtual <players> <amount> <crateName>` | `pebbles.admin.crate` | Forces wallet balance. Only exists when virtual keys are enabled |
-| `/padmin activecrates` | `pebbles.admin.crate` | Lists every placed crate; click one to toggle its idle particles |
+| `/padmin activecrates` | `pebbles.admin.crate` | Lists every placed crate; click one to open its [settings screen](#per-crate-style-overrides) |
 | `/padmin keys <player>` | `pebbles.admin.crate` | Inspects a player's key wallet. Only exists when virtual keys are enabled |
 | `/padmin convertkeys <players>` | `pebbles.admin.crate` | Turns physical keys in a player's inventory into wallet balance. Only exists when virtual keys are enabled |
 | `/padmin reload` | `pebbles.admin.crate` | Re-reads every config file from disk |
@@ -287,6 +288,123 @@ breaking the crate.
 registered after the server is up, and swapping a live store would strand queued writes. Changing
 either needs a full restart; `/padmin reload` will say so. Everything else applies immediately on
 reload.
+
+## Per-crate style overrides
+
+Everything under `animation` and `particles.idle` in `config.json` is the server-wide default. A
+crate can override it, and a single placed crate can override that in turn — so the Vote crate at
+spawn can throw hearts and chime while every other crate keeps the house style.
+
+### Resolution order
+
+Each field is resolved **on its own**, from the narrowest layer that sets it:
+
+```
+this placed crate  →  the crate type  →  config.json
+```
+
+A placement that sets only the reward sound's pitch still inherits that sound's id and volume from
+the crate type, and everything else from `config.json`. `null` (or simply leaving a field out) means
+"inherit", at every level. A sound or particle id the game does not know is skipped rather than used:
+the next layer down supplies the value, and the unknown id is reported at start-up.
+
+### On a crate type
+
+Add a `style` object to the crate's JSON file. Every field is optional.
+
+```json
+{
+  "crateName": "Vote",
+  "crateKey": { "material": "minecraft:tripwire_hook", "name": "Vote Key", "lore": [] },
+  "style": {
+    "particleStyle": "heart",
+    "particleType": "minecraft:heart",
+    "shuffleSound": { "id": "minecraft:block.note_block.bell", "volume": 0.6, "pitch": 1.4 },
+    "rewardSound": { "id": "minecraft:entity.player.levelup", "volume": 0.8, "pitch": 1.0 },
+    "animationSteps": 14,
+    "ticksPerStep": 4,
+    "finalScale": 2.0
+  },
+  "prize": []
+}
+```
+
+| Field | Range | Meaning |
+|---|---|---|
+| `particleStyle` | `cross-spiral`, `spiral`, `sparkle`, `heart`, `none` | The idle pattern above the crate. `none` draws nothing |
+| `particleType` | any particle id | Overrides the particle that style draws |
+| `shuffleSound` | `{ id, volume, pitch }` | Played on every roll step. Volume `0`–`10`, pitch `0.5`–`2.0` |
+| `rewardSound` | `{ id, volume, pitch }` | Replaces `animation.rewardSounds` for this crate. One sound, not a list |
+| `animationSteps` | `0`–`200` | How many prizes flick past |
+| `ticksPerStep` | `1`–`200` | Ticks between them |
+| `finalScale` | `0.1`–`10.0` | Size of the won prize |
+
+Each pattern has its own default particle, used when `particleType` is absent:
+
+| `particleStyle` | Default particle | Behaviour |
+|---|---|---|
+| `cross-spiral` | `particles.idle` from `config.json` | Two strands winding up, every tick. The mod's original look |
+| `spiral` | `minecraft:firework` | The same, wound tighter |
+| `sparkle` | `minecraft:end_rod` | A scatter above the crate, every 2 seconds |
+| `heart` | `minecraft:heart` | A scatter around the crate, every 1.5 seconds |
+| `none` | — | No idle particles at all |
+
+`animation.holdTicks`, `rewardSoundRepeats`, `particles.reward` and the particle radius stay global.
+`config.json` can name several reward sounds that play together; a `rewardSound` override replaces
+that chord with the single sound it names, merged field by field over the first of them.
+
+### On one placed crate
+
+The values in `config/pebbles-crate/crate_data.json` grow an object form. Both are read forever, and
+a placement with no style of its own is still written as a bare crate name:
+
+```json
+{
+  "minecraft:overworld:2199023222900": "Silver",
+  "minecraft:the_nether:-137713829994433": {
+    "name": "Vote",
+    "style": { "particleStyle": "sparkle", "finalScale": 3.0 }
+  }
+}
+```
+
+The `style` object is exactly the one above. Keys keep the `<worldId>:<packedBlockPos>` format;
+dimension-less keys from very old versions are still migrated to the overworld on load.
+
+### From the game
+
+`/padmin activecrates` lists every placed crate; clicking one opens its settings screen.
+
+- **Info** (top) — crate name, world and position, whether it uses virtual or physical keys, and
+  which file the crate was read from.
+- **Teleport** — puts you on top of that crate and closes the screen.
+- **Particles here** — the old blacklist toggle. It is a hard off-switch for this one block and wins
+  over any style, including one that would otherwise draw particles.
+- **Editing: this placement / crate type** — the scope switch, lime for the single block and orange
+  for every crate of that type. Everything below is written to whichever is shown.
+- **Particle style, sounds, animation** — one item each.
+
+The interaction is the same everywhere: **left click** is next or `+`, **right click** is previous
+or `−`, **shift + left click** clears the value back to inherit. Sound items are the exception — a
+plain click *plays* the sound as the crate would, so shift + left and shift + right walk the preset
+list instead. Every item's lore says which of these apply to it, what the value in force is, where
+that value comes from, and what the layer being edited has set.
+
+The sound presets are: `block.note_block.banjo`, `.bell`, `.harp`, `.pling`, `.bit`,
+`block.amethyst_block.chime`, `block.ender_chest.open`, `block.beacon.activate`,
+`entity.experience_orb.pickup`, `entity.player.levelup`, `entity.firework_rocket.twinkle`,
+`item.totem.use`, `ui.button.click`, plus *inherit*. Any other sound id — vanilla or from another
+mod — can be set by editing the JSON; the screen leaves it alone and shows it as the value in force.
+The screen's scale steps stay within `0.5`–`4.0`; the config file accepts the wider range above.
+
+Everything the screen writes goes straight to disk and survives `/padmin reload`. Editing a crate
+type rewrites only the `style` member of its file, so hand-written fields, comments in values, NBT
+strings and key order are left as they are.
+
+> The web editor at [pebblescrate.sethi.tech](https://pebblescrate.sethi.tech/) does not know about
+> `style` yet and will drop it from a config it round-trips. That costs the crate its overrides —
+> it falls back to inheriting `config.json` — but never breaks the file. Set styles from the game or
+> by hand until the editor catches up.
 
 ## Messages
 
@@ -383,7 +501,10 @@ Two files migrate themselves on first start:
 
 - **`crate_data.json`** — placed crates used to be keyed by a bare block position, which meant a
   crate in the Nether and one at the same coordinates in the Overworld were the same entry. Keys are
-  now `worldId:packedPos`; old entries are read and rewritten as `minecraft:overworld`.
+  now `worldId:packedPos`; old entries are read and rewritten as `minecraft:overworld`. Values may
+  now be an object as well as a crate name — see
+  [Per-crate style overrides](#per-crate-style-overrides) — but a crate with no style of its own is
+  still written the way it always was.
 - **`blacklist.txt`** — particle-blacklist lines used to be `x,y,z` and are rewritten as
   `world_id,x,y,z`, again assuming the Overworld.
 

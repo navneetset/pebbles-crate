@@ -12,6 +12,7 @@ import net.minecraft.world.World
 import org.slf4j.LoggerFactory
 import tech.sethi.pebbles.crates.config.GlobalConfigManager
 import tech.sethi.pebbles.crates.config.Messages
+import tech.sethi.pebbles.crates.config.ResolvedStyle
 import tech.sethi.pebbles.crates.entity.RollItemDisplayEntity
 import tech.sethi.pebbles.crates.particles.CrateParticles
 import tech.sethi.pebbles.crates.util.NbtItemUtil
@@ -29,13 +30,18 @@ class CrateEventHandler(
     private val prizes: List<Prize>,
     private val cratesInUse: MutableMap<WorldBlockPos, Long>,
     private val playerCooldowns: MutableMap<UUID, Long>,
-    private val crateName: String
+    private val crateName: String,
+    /** Sounds, timing and scale for this crate at this block, already inherited down from config.json. */
+    private val style: ResolvedStyle
 ) {
     // Extract the BlockPos for convenience
     private val pos: BlockPos = worldBlockPos.pos
 
     companion object {
         private val logger = LoggerFactory.getLogger("pebbles-crates")
+
+        /** Slack on the display entity's own backstop, so it never expires before its roll ends. */
+        private const val LIFETIME_MARGIN_TICKS = 100L
     }
 
     private val random = Random()
@@ -79,20 +85,22 @@ class CrateEventHandler(
         val currentTime = System.currentTimeMillis()
         val animation = GlobalConfigManager.animation
 
-        val display = RollItemDisplayEntity(world, player, pos)
+        // Long enough for this crate's own animation, however far it was tuned past config.json's.
+        val lifetimeTicks = maxOf(animation.maxLifetimeTicks.toLong(), style.rollTicks + LIFETIME_MARGIN_TICKS)
+        val display = RollItemDisplayEntity(world, player, pos, style.finalScale, lifetimeTicks.toInt())
         if (!display.spawn()) {
             logger.warn("[Pebbles-Crates] Could not spawn the roll display for crate '$crateName' at $pos")
             awardPrize(finalPrize)
             return
         }
 
-        cratesInUse[worldBlockPos] = currentTime
+        cratesInUse[worldBlockPos] = currentTime + GlobalConfigManager.maxAnimationMillis(style)
 
-        val shuffleSound = GlobalConfigManager.soundEvent(animation.shuffleSound.id)
+        val shuffleSound = GlobalConfigManager.soundEvent(style.shuffleSound.id)
 
-        for (i in 0 until animation.steps) {
+        for (i in 0 until style.steps) {
             val rollPrize = weightedRandomSelection(prizes) ?: continue
-            TickHandler.schedule(animation.ticksPerStep * i) {
+            TickHandler.schedule(style.ticksPerStep * i) {
                 display.showPrize(prizeStack(rollPrize))
                 if (shuffleSound != null) {
                     world.playSound(
@@ -100,15 +108,15 @@ class CrateEventHandler(
                         pos,
                         shuffleSound,
                         SoundCategory.BLOCKS,
-                        animation.shuffleSound.volume,
-                        animation.shuffleSound.pitch
+                        style.shuffleSound.volume,
+                        style.shuffleSound.pitch
                     )
                 }
             }
         }
 
         // Delay the final prize reveal so that the last random prize is shown for a while
-        val finalPrizeDelay = animation.ticksPerStep * (animation.steps + 1)
+        val finalPrizeDelay = style.ticksPerStep * (style.steps + 1)
 
         TickHandler.schedule(finalPrizeDelay) {
             display.showFinalPrize(prizeStack(finalPrize))
@@ -123,7 +131,7 @@ class CrateEventHandler(
 
     /** Hands out the prize: particles, the configured messages, and the reward commands. */
     private fun awardPrize(prize: Prize) {
-        CrateParticles.rewardParticles(player, pos)
+        CrateParticles.rewardParticles(player, pos, style)
 
         if (!prize.messageToOpener.isNullOrEmpty()) {
             val message = prize.messageToOpener.replace("{prize_name}", prize.name)
