@@ -1,6 +1,9 @@
 plugins {
     id 'fabric-loom' version '1.8-SNAPSHOT'
     id "org.jetbrains.kotlin.jvm" version "2.0.21"
+    // The MongoDB driver has to travel inside the jar (optional cross-server key storage) and has to
+    // be relocated, or a second mod bundling a different driver version wins the classpath.
+    id 'com.gradleup.shadow' version '8.3.5'
 }
 
 sourceCompatibility = JavaVersion.VERSION_21
@@ -15,15 +18,18 @@ repositories {
 }
 
 loom {
-    splitEnvironmentSourceSets()
-
     mods {
-        modid {
+        "pebbles-crates" {
             sourceSet sourceSets.main
-            sourceSet sourceSets.client
         }
     }
+}
 
+configurations {
+    // Everything in here is shaded (and relocated) into the mod jar rather than nested with `include`:
+    // jar-in-jar would leave `com.mongodb` on the shared classpath for every other mod to collide with.
+    shadowBundle
+    implementation.extendsFrom shadowBundle
 }
 
 dependencies {
@@ -36,14 +42,28 @@ dependencies {
 
 
     implementation 'net.kyori:adventure-text-serializer-legacy:4.17.0'
-    implementation 'net.kyori:adventure-platform-fabric:5.14.2'
+    // adventure-platform-fabric is itself a Fabric mod: it has to go through modImplementation so
+    // Loom remaps its mixins, otherwise runServer dies applying them against named Minecraft.
+    modImplementation 'net.kyori:adventure-platform-fabric:5.14.2'
     implementation "net.kyori:adventure-api:4.17.0"
+    implementation 'net.kyori:adventure-text-minimessage:4.17.0'
+    // Pulled in transitively by the platform anyway; named here because the mod calls it directly
+    // and an `include` has to name what it bundles.
+    implementation 'net.kyori:adventure-text-serializer-gson:4.17.0'
 
     include 'net.kyori:adventure-platform-fabric:5.14.2'
     include 'net.kyori:adventure-text-serializer-legacy:4.17.0'
     include "net.kyori:adventure-api:4.17.0"
+    include 'net.kyori:adventure-text-minimessage:4.17.0'
+    include 'net.kyori:adventure-text-serializer-gson:4.17.0'
 
     compileOnly 'net.luckperms:api:5.4'
+
+    // Sync driver only: every call already runs on the mod's own IO thread, so the reactive stack
+    // would just add weight. slf4j comes from Minecraft, it must not be duplicated into the jar.
+    shadowBundle('org.mongodb:mongodb-driver-sync:4.11.5') {
+        exclude group: 'org.slf4j'
+    }
 }
 
 processResources {
@@ -72,5 +92,36 @@ jar {
     from("LICENSE") {
         rename { "${it}_${project.archivesBaseName}" }
     }
+}
+
+/**
+ * Shade + relocate before Loom remaps, so the published jar carries the driver under
+ * `tech.sethi.pebbles.crates.shaded`. Relocation rewrites our own call sites too, so the mod code
+ * keeps importing `com.mongodb` as usual; only the dev runtime sees the unrelocated packages.
+ */
+shadowJar {
+    configurations = [project.configurations.shadowBundle]
+    archiveClassifier = 'dev-shadow'
+
+    relocate 'com.mongodb', 'tech.sethi.pebbles.crates.shaded.com.mongodb'
+    relocate 'org.bson', 'tech.sethi.pebbles.crates.shaded.org.bson'
+
+    // The driver ships SPI entries under META-INF/services that name relocated classes.
+    mergeServiceFiles()
+
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+    exclude 'META-INF/maven/**'
+    exclude 'META-INF/native-image/**'
+
+    from("LICENSE") {
+        rename { "${it}_${project.archivesBaseName}" }
+    }
+}
+
+remapJar {
+    dependsOn shadowJar
+    inputFile = shadowJar.archiveFile
 }
 

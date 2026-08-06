@@ -6,43 +6,46 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
 import net.minecraft.component.DataComponentTypes
-import net.minecraft.component.type.NbtComponent
-import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
-import net.minecraft.nbt.NbtCompound
 import net.minecraft.nbt.NbtElement
 import net.minecraft.nbt.NbtOps
-import net.minecraft.registry.Registries
 import net.minecraft.registry.RegistryOps
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.server.world.ServerWorld
-import net.minecraft.text.Text
 import net.minecraft.util.ActionResult
-import net.minecraft.util.Formatting
 import net.minecraft.util.Hand
-import net.minecraft.util.Identifier
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Vec3d
 import net.minecraft.world.World
 import org.slf4j.LoggerFactory
+import tech.sethi.pebbles.crates.commands.CommandCooldowns
+import tech.sethi.pebbles.crates.commands.CrateCommand
+import tech.sethi.pebbles.crates.commands.KeyCommand
+import tech.sethi.pebbles.crates.config.GlobalConfigManager
+import tech.sethi.pebbles.crates.config.Messages
+import tech.sethi.pebbles.crates.keys.KeyManager
+import tech.sethi.pebbles.crates.keys.PhysicalKeyProvider
 import tech.sethi.pebbles.crates.lootcrates.BlacklistConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateConfigManager
 import tech.sethi.pebbles.crates.lootcrates.CrateDataManager
-import tech.sethi.pebbles.crates.lootcrates.CrateEventHandler
+import tech.sethi.pebbles.crates.lootcrates.CrateOpener
 import tech.sethi.pebbles.crates.particles.CrateParticles
 import tech.sethi.pebbles.crates.screenhandlers.PrizeDisplayScreenHandlerFactory
 import tech.sethi.pebbles.crates.util.*
-import tech.sethi.pebbleslootcrate.commands.CrateCommand
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 object PebblesCrate : ModInitializer {
     private val logger = LoggerFactory.getLogger("pebbles-crates")
     const val MOD_ID = "pebbles_crate"
-    val cratesInUse = Collections.synchronizedSet(mutableSetOf<WorldBlockPos>())
-    val playerCooldowns: MutableMap<UUID, Long> = Collections.synchronizedMap(mutableMapOf())
-    val tasks: MutableMap<Long, MutableList<Task>> = mutableMapOf()
+
+    /** How often the stale-state sweep runs, in ticks. */
+    private const val SWEEP_INTERVAL_TICKS = 100L
+
+    /** Crates currently mid-roll, mapped to the millisecond their animation started. */
+    val cratesInUse: MutableMap<WorldBlockPos, Long> = ConcurrentHashMap()
+    val playerCooldowns: MutableMap<UUID, Long> = ConcurrentHashMap()
 
     var server: MinecraftServer? = null
 
@@ -62,10 +65,26 @@ object PebblesCrate : ModInitializer {
         //create /config/pebbles-crate/crates if it doesn't exist
         CrateConfigManager.createCratesFolder()
 
-        TickHandler()
+        TickHandler.register()
 
         CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
             CrateCommand.register(dispatcher)
+
+            // Commands cannot be added after this point, and the config file can be read without a
+            // server, so the switch is consulted here: with virtual keys off, /keys never exists.
+            if (KeyManager.featureEnabled) {
+                KeyCommand.register(dispatcher)
+            }
+        }
+
+        ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
+            KeyManager.onPlayerJoin(handler.player)
+        }
+
+        // Persists the wallet and drops it, so a player rejoining - possibly on another server -
+        // reads whatever the shared store holds by then rather than this server's stale copy.
+        ServerPlayConnectionEvents.DISCONNECT.register { handler, _ ->
+            KeyManager.onPlayerQuit(handler.player)
         }
 
         UseBlockCallback.EVENT.register(UseBlockCallback { player, world, hand, hitResult ->
@@ -73,78 +92,36 @@ object PebblesCrate : ModInitializer {
                 return@UseBlockCallback ActionResult.PASS
             }
 
-            val crateDataManager = CrateDataManager()
-            val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
-
             // Create a world-aware position for the clicked block
             val worldId = getWorldId(world)
             val worldBlockPos = WorldBlockPos(worldId, hitResult.blockPos)
 
             // Check if the clicked position is in the crate data
-            if (worldBlockPos in savedCrateData) {
-                var crateName = savedCrateData[worldBlockPos]
-                val crateConfig = CrateConfigManager.getCrateConfig(crateName!!)
-
-                if (crateConfig != null && crateConfig.screenName != null) {
-                    crateName = crateConfig.screenName
-                }
-
-                val parsedKey = Registries.ITEM.get(
-                    Identifier.tryParse(
-                        crateConfig?.crateKey?.material ?: "minecraft:gold_nugget"
-                    )
-                )
-                val parseKeyStack = ItemStack(parsedKey)
-                val crateKeyLore = crateConfig?.crateKey?.lore?.map { Text.of(it) }
-                if (crateKeyLore != null) {
-                    setLore(parseKeyStack, crateKeyLore)
-                }
-                if (crateConfig != null) {
-                    val nbt = NbtComponent.of(NbtCompound().apply { putString("CrateName", crateName) })
-                    parseKeyStack.set(DataComponentTypes.CUSTOM_DATA, nbt)
-                }
+            val registeredCrateName = CrateDataManager.getCrateName(worldBlockPos)
+            if (registeredCrateName != null) {
+                val crateConfig = CrateConfigManager.getCrateConfig(registeredCrateName)
 
                 if (crateConfig != null) {
-                    val heldStack = player.mainHandStack
-                    val heldStackNbt = heldStack.get(DataComponentTypes.CUSTOM_DATA)?.copyNbt()
-                    if (heldStack.item == parseKeyStack.item && heldStackNbt != null && heldStackNbt.getString(
-                            "CrateName"
-                        ) == crateConfig.crateName
-                    ) {
-                        if (cratesInUse.contains(worldBlockPos)) {
-                            player.sendMessage(
-                                Text.literal("Someone is already using this crate!").formatted(Formatting.RED), false
-                            )
-                            return@UseBlockCallback ActionResult.SUCCESS
-                        }
+                    val serverPlayer = player as ServerPlayerEntity
+                    val displayName = crateConfig.screenName ?: crateConfig.crateName
 
-                        val crateEventHandler = CrateEventHandler(
-                            world,
-                            worldBlockPos,
-                            player as ServerPlayerEntity,
-                            crateConfig.prize,
-                            cratesInUse,
-                            playerCooldowns,
-                            crateName
-                        )
-
-                        if (crateEventHandler.canOpenCrate()) {
-                            heldStack.decrement(1)
-                            val finalPrize = crateEventHandler.weightedRandomSelection(crateConfig.prize)
-                            crateEventHandler.showPrizesAnimation(finalPrize)
-                            crateEventHandler.updatePlayerCooldown()
-                        }
-
-
-                        // Floating item will be spawned in the CrateEventHandler's init block
-                    } else {
-                        // Open crate preview GUI
-                        player.openHandledScreen(
-                            PrizeDisplayScreenHandlerFactory(
-                                ParseableName("$crateName").returnMessageAsStyledText(), crateConfig
-                            )
-                        )
+                    // A virtual crate is opened from its preview screen, so the block itself always
+                    // opens that. A physical crate keeps the click-with-key-in-hand behaviour.
+                    if (!KeyManager.isVirtual(crateConfig) && PhysicalKeyProvider.hasKey(serverPlayer, crateConfig)) {
+                        CrateOpener.open(serverPlayer, world, worldBlockPos, crateConfig, PhysicalKeyProvider)
+                        return@UseBlockCallback ActionResult.SUCCESS
                     }
+
+                    // Keys minted before the crate went virtual are dead weight until they are converted.
+                    if (KeyManager.isVirtual(crateConfig) && PhysicalKeyProvider.hasKey(serverPlayer, crateConfig)) {
+                        Messages.send(serverPlayer, "crate.convert-hint", "player_name" to serverPlayer.name.string)
+                    }
+
+                    player.openHandledScreen(
+                        PrizeDisplayScreenHandlerFactory(
+                            ParseableName(displayName).returnMessageAsStyledText(), crateConfig, world, worldBlockPos
+                        )
+                    )
                     return@UseBlockCallback ActionResult.SUCCESS
                 }
             } else {
@@ -158,12 +135,20 @@ object PebblesCrate : ModInitializer {
                 ) {
                     val crateName = heldStack.get(DataComponentTypes.CUSTOM_DATA)?.nbt?.getString("CrateName")
                         ?: return@UseBlockCallback ActionResult.PASS
-                    savedCrateData[worldBlockPos] = crateName
-                    crateDataManager.saveCrateData(savedCrateData)
 
-                    player.sendMessage(
-                        Text.literal("Assigned a $crateName crate to the block at ${hitResult.blockPos} in ${worldId}")
-                            .formatted(Formatting.GRAY), false
+                    if (!PermissionUtil.isAdmin(player)) {
+                        Messages.send(player, "crate.no-permission-place")
+                        return@UseBlockCallback ActionResult.SUCCESS
+                    }
+
+                    CrateDataManager.assignCrate(worldBlockPos, crateName)
+
+                    Messages.send(
+                        player,
+                        "crate.assigned",
+                        "crate_name" to crateName,
+                        "position" to hitResult.blockPos.toShortString(),
+                        "world" to worldId
                     )
                     return@UseBlockCallback ActionResult.SUCCESS
                 }
@@ -173,24 +158,30 @@ object PebblesCrate : ModInitializer {
         })
 
 
+        // A registered crate is admin property: a survival player mining it would otherwise silently
+        // unregister it, and the block would come back as an ordinary chest on the next placement.
+        PlayerBlockBreakEvents.BEFORE.register(PlayerBlockBreakEvents.Before { world, player, pos, _, _ ->
+            if (world.isClient) return@Before true
+
+            val worldBlockPos = WorldBlockPos(getWorldId(world), pos)
+            if (CrateDataManager.getCrateName(worldBlockPos) == null) return@Before true
+            if (PermissionUtil.isAdmin(player)) return@Before true
+
+            Messages.send(player, "crate.no-permission-break")
+            false
+        })
+
         PlayerBlockBreakEvents.AFTER.register(PlayerBlockBreakEvents.After { world, player, pos, _, _ ->
-            // Load the saved crate data
-            val crateDataManager = CrateDataManager()
-            val savedCrateData = crateDataManager.loadCrateData().toMutableMap()
+            if (world.isClient) return@After
 
             // Create a world-aware position for the broken block
             val worldId = getWorldId(world)
             val worldBlockPos = WorldBlockPos(worldId, pos)
 
             // Check if the broken block position is in the crate data
-            if (worldBlockPos in savedCrateData) {
-                // Remove the crate data for this position
-                savedCrateData.remove(worldBlockPos)
-                crateDataManager.saveCrateData(savedCrateData)
-
-                // Send a message to the player for debugging purposes
-                player.sendMessage(
-                    Text.literal("Crate data removed for position: $pos in $worldId").formatted(Formatting.GRAY), false
+            if (CrateDataManager.removeCrate(worldBlockPos)) {
+                Messages.send(
+                    player, "crate.removed", "position" to pos.toShortString(), "world" to worldId
                 )
             }
         })
@@ -202,48 +193,79 @@ object PebblesCrate : ModInitializer {
                 }
             }
             CrateParticles.updateTimers()
+
+            if (TickHandler.currentTick % SWEEP_INTERVAL_TICKS == 0L) {
+                sweepStaleState()
+            }
         })
 
         ServerLifecycleEvents.SERVER_STARTING.register { server ->
             this.server = server
-            nbtOps = server!!.registryManager.getOps(NbtOps.INSTANCE)
+            nbtOps = server.registryManager.getOps(NbtOps.INSTANCE)
+            reloadConfigs()
+            KeyManager.start(server)
+        }
+
+        // Nothing here survives a world: the singletons outlive an integrated server otherwise.
+        ServerLifecycleEvents.SERVER_STOPPED.register {
+            KeyManager.stop()
+            TickHandler.clear()
+            CommandCooldowns.clear()
+            cratesInUse.clear()
+            playerCooldowns.clear()
+            this.server = null
         }
     }
 
+    /**
+     * Frees crates whose animation never finished (an exception, a crash mid-roll, a world unload)
+     * and drops cooldown entries for players who are long past theirs, so neither map can grow
+     * without bound over an uptime.
+     */
+    private fun sweepStaleState() {
+        val now = System.currentTimeMillis()
+
+        val freed = cratesInUse.entries.removeIf { now - it.value > GlobalConfigManager.maxAnimationMillis }
+        if (freed) {
+            logger.warn("[Pebbles-Crates] Released a crate whose roll animation never finished")
+        }
+
+        playerCooldowns.entries.removeIf { now - it.value > GlobalConfigManager.crate.cooldownMillis }
+    }
+
+    /** Re-reads every config file from disk. Called at server start and by /padmin reload. */
+    fun reloadConfigs() {
+        GlobalConfigManager.reload()
+        Messages.reload()
+        CrateConfigManager.loadCrateConfigs()
+        CrateDataManager.reload()
+        BlacklistConfigManager.reload()
+    }
+
     private fun spawnParticlesForAllCrates(world: ServerWorld) {
-        val crateDataManager = CrateDataManager()
-        val savedCrateData = crateDataManager.loadCrateData()
-        val blacklist = BlacklistConfigManager().getBlacklist()
+        val players = world.players
+        if (players.isEmpty()) return
 
-        // Get the world ID for the current world
-        val currentWorldId = getWorldId(world)
+        val crates = CrateDataManager.cratesInWorld(getWorldId(world))
+        if (crates.isEmpty()) return
 
-        for (worldBlockPos in savedCrateData.keys) {
-            // Only process crates in this world
-            if (worldBlockPos.worldId != currentWorldId) continue
+        val blacklist = BlacklistConfigManager.getBlacklist()
+        val radiusSquared = GlobalConfigManager.particleRadiusSquared
 
+        for (worldBlockPos in crates) {
             // Skip crates in the blacklist
             if (worldBlockPos in blacklist) continue
 
             val pos = worldBlockPos.pos
-            world.getChunk(pos.x shr 4, pos.z shr 4)
+            // Never load the chunk just to draw particles - a crate nobody can see does not need them
+            if (!world.isChunkLoaded(pos.x shr 4, pos.z shr 4)) continue
 
-            val playersNearby =
-                world.getPlayersByDistance(pos, 16.0) // Only get players within 16 blocks of the crate block
-            for (player in playersNearby) {
-                CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
+            for (player in players) {
+                // Only players within the configured radius of the crate block get the particles
+                if (player.squaredDistanceTo(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5) <= radiusSquared) {
+                    CrateParticles.spawnCrossSpiralsParticles(player, pos, world)
+                }
             }
-        }
-    }
-
-
-    private fun ServerWorld.getPlayersByDistance(pos: BlockPos, distance: Double): List<ServerPlayerEntity> {
-        return this.players.filter { player ->
-            player.squaredDistanceTo(
-                Vec3d(
-                    pos.x + 0.5, pos.y + 0.5, pos.z + 0.5
-                )
-            ) <= distance * distance
         }
     }
 }

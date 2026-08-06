@@ -1,36 +1,25 @@
 package tech.sethi.pebbles.crates.lootcrates
 
-import com.mojang.brigadier.ParseResults
-import com.mojang.serialization.Dynamic
-import net.minecraft.SharedConstants
-import net.minecraft.component.ComponentChanges
 import net.minecraft.component.DataComponentTypes
-import net.minecraft.datafixer.TypeReferences
 import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.nbt.NbtHelper
-import net.minecraft.nbt.StringNbtReader
 import net.minecraft.registry.Registries
-import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.server.world.ServerWorld
 import net.minecraft.sound.SoundCategory
-import net.minecraft.sound.SoundEvents
-import net.minecraft.text.Text
-import net.minecraft.util.Formatting
 import net.minecraft.util.Identifier
 import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Vec3d
 import net.minecraft.world.World
-import tech.sethi.pebbles.crates.PebblesCrate
-import tech.sethi.pebbles.crates.PebblesCrate.server
+import org.slf4j.LoggerFactory
+import tech.sethi.pebbles.crates.config.GlobalConfigManager
+import tech.sethi.pebbles.crates.config.Messages
+import tech.sethi.pebbles.crates.entity.RollItemDisplayEntity
 import tech.sethi.pebbles.crates.particles.CrateParticles
-import tech.sethi.pebbles.crates.util.FloatingPrizeItemEntity
+import tech.sethi.pebbles.crates.util.NbtItemUtil
 import tech.sethi.pebbles.crates.util.ParseableMessage
-import tech.sethi.pebbles.crates.util.Task
+import tech.sethi.pebbles.crates.util.ParseableName
+import tech.sethi.pebbles.crates.util.TickHandler
 import tech.sethi.pebbles.crates.util.WorldBlockPos
 import java.util.*
-import java.util.concurrent.*
 
 
 class CrateEventHandler(
@@ -38,21 +27,29 @@ class CrateEventHandler(
     private val worldBlockPos: WorldBlockPos,
     private val player: ServerPlayerEntity,
     private val prizes: List<Prize>,
-    private val cratesInUse: MutableSet<WorldBlockPos>,
+    private val cratesInUse: MutableMap<WorldBlockPos, Long>,
     private val playerCooldowns: MutableMap<UUID, Long>,
     private val crateName: String
 ) {
     // Extract the BlockPos for convenience
     private val pos: BlockPos = worldBlockPos.pos
+
     companion object {
-        const val COOLDOWN_TIME = 8000L
+        private val logger = LoggerFactory.getLogger("pebbles-crates")
     }
 
-    private var lastFloatingPrizeItemEntity: FloatingPrizeItemEntity? = null
-
     private val random = Random()
-    fun weightedRandomSelection(prizes: List<Prize>): Prize {
+
+    /**
+     * Returns null when there is nothing to roll: an empty prize list, or one where every chance is
+     * zero. Both used to reach `random.nextInt(0)` and throw out of the interaction handler.
+     */
+    fun weightedRandomSelection(prizes: List<Prize>): Prize? {
+        if (prizes.isEmpty()) return null
+
         val totalWeight = prizes.sumOf { it.chance }
+        if (totalWeight <= 0) return null
+
         val randomValue = random.nextInt(totalWeight)
         var cumulativeWeight = 0
 
@@ -63,164 +60,128 @@ class CrateEventHandler(
             }
         }
 
-        throw IllegalStateException("No prize could be selected.")
+        // Only reachable if a config mixes negative chances into a positive total.
+        return prizes.last()
     }
 
-
-    private fun spawnFloatingItem(prize: Prize) {
-        if (world is ServerWorld) {
-            CrateParticles.rewardParticles(player, pos)
-
-            revealPrize(prize, isFinalPrize = true)
-            if (prize.messageToOpener != null && prize.messageToOpener != "") {
-                val message = prize.messageToOpener.replace("{prize_name}", prize.name)
-                ParseableMessage(message, player, prize.name).send()
-            }
-
-            if (prize.broadcast != null && prize.broadcast != "") {
-                var broadcast = prize.broadcast.replace("{prize_name}", prize.name)
-                broadcast = broadcast.replace("{player_name}", player.name.string)
-                broadcast = broadcast.replace("{crate_name}", crateName)
-                if (broadcast != "") {
-                    ParseableMessage(broadcast, player, prize.name).sendToAll()
-                }
-            }
-        }
-    }
-
-    private fun revealPrize(prize: Prize, isFinalPrize: Boolean) {
-        // Remove any previous floating item
-        removeFloatingItem()
-
-        val parsedPrize = Registries.ITEM.get(Identifier.tryParse(prize.material))
-        var itemStack = ItemStack(parsedPrize)
-
-        if (prize.nbt?.isNotBlank() == true && prize.nbt != "{}" && prize.nbt != "null") {
-                val parsedNbt = StringNbtReader.parse(prize.nbt)
-
-                val namespacedKeyPattern = Regex("^[a-z0-9_.-]+:[a-z0-9_/.-]+$")
-
-                val isLegacy = parsedNbt.keys.any { !namespacedKeyPattern.matches(it) }
-                if (isLegacy) {
-                    val legacyNbt = NbtCompound().apply {
-                        putString("id", itemStack.registryEntry.idAsString)
-                        putInt("Count", prize.amount)
-                        put("tag", parsedNbt)
-                    }
-
-                    val updatedNbt = server?.dataFixer?.update(
-                        TypeReferences.ITEM_STACK,
-                        Dynamic(PebblesCrate.nbtOps, legacyNbt),
-                        3700,
-                        SharedConstants.getGameVersion().saveVersion.id
-                    )?.value
-
-                    itemStack = ItemStack.CODEC.parse(PebblesCrate.nbtOps, updatedNbt).result().orElse(ItemStack.EMPTY)
-                } else {
-                    val updatedNbt =
-                        ComponentChanges.CODEC.parse(PebblesCrate.nbtOps, StringNbtReader.parse(prize.nbt)).result()
-                            .orElse(null)
-                    itemStack.applyChanges(updatedNbt)
-                    itemStack.count = prize.amount
-                }
-        }
-
-        itemStack.set(DataComponentTypes.CUSTOM_NAME, Text.of(prize.name))
-
-        var height = pos.y.toDouble()
-
-        if (isFinalPrize) {
-            height = pos.y + 1.0
-        }
-        val spawnPos = Vec3d(pos.x + 0.5, height + 1.5, pos.z + 0.5)
-
-        val floatingPrizeItemEntity = FloatingPrizeItemEntity(world, spawnPos.x, spawnPos.y, spawnPos.z, itemStack)
-        world.spawnEntity(floatingPrizeItemEntity)
-
-        // Store the last spawned floating prize item entity
-        synchronized(floatingPrizeItemEntityLock) {
-            lastFloatingPrizeItemEntity = floatingPrizeItemEntity
-        }
-    }
-
-
-
-
+    /**
+     * By the time this runs the key has already been taken, so every path out of it has to leave the
+     * player with their prize - a return that skips [awardPrize] is a key spent for nothing. The
+     * cooldown is not re-checked here for the same reason: [canOpenCrate] owns that decision, and it
+     * is asked before anything is charged.
+     */
     fun showPrizesAnimation(finalPrize: Prize) {
-        if (world is ServerWorld) {
-            val currentTime = System.currentTimeMillis()
-            val lastCrateOpenTime = playerCooldowns[player.uuid] ?: 0L
+        if (world !is ServerWorld) {
+            awardPrize(finalPrize)
+            return
+        }
 
-            if (currentTime - lastCrateOpenTime < COOLDOWN_TIME) {
-                val remainingCooldown = (COOLDOWN_TIME - (currentTime - lastCrateOpenTime)) / 1000
-                player.sendMessage(
-                    Text.literal("You can open another crate in $remainingCooldown seconds.").formatted(Formatting.RED),
-                    false
-                )
-                return
-            }
+        val currentTime = System.currentTimeMillis()
+        val animation = GlobalConfigManager.animation
 
-            cratesInUse.add(worldBlockPos)
+        val display = RollItemDisplayEntity(world, player, pos)
+        if (!display.spawn()) {
+            logger.warn("[Pebbles-Crates] Could not spawn the roll display for crate '$crateName' at $pos")
+            awardPrize(finalPrize)
+            return
+        }
 
-            val animationPrizesCount = 10
-            val delayBetweenPrizes = 6L // 300 milliseconds converted to ticks
+        cratesInUse[worldBlockPos] = currentTime
 
-            for (i in 0 until animationPrizesCount) {
-                val randomPrize = weightedRandomSelection(prizes)
-                addTask(world, delayBetweenPrizes * i) { showRandomPrizeRunnable(randomPrize).run() }
-            }
+        val shuffleSound = GlobalConfigManager.soundEvent(animation.shuffleSound.id)
 
-            // Delay the final prize reveal so that the last random prize is shown for a while
-            val finalPrizeDelay = delayBetweenPrizes * (animationPrizesCount + 1)
-
-            addTask(world, finalPrizeDelay) {
-                revealPrize(finalPrize, true)
-                spawnFloatingItem(finalPrize) // Display the final prize as a floating item
-
-                for (command in finalPrize.commands) {
-                    val cmd = command.replace("{player_name}", player.name.string)
-                    try {
-                        val parseResults: ParseResults<ServerCommandSource> =
-                            player.server.commandManager.dispatcher.parse(cmd, player.server.commandSource)
-                        player.server.commandManager.dispatcher.execute(parseResults)
-                    } catch (e: Exception) {
-                        player.sendMessage(Text.of("Error executing command: $command"), false)
-                    }
+        for (i in 0 until animation.steps) {
+            val rollPrize = weightedRandomSelection(prizes) ?: continue
+            TickHandler.schedule(animation.ticksPerStep * i) {
+                display.showPrize(prizeStack(rollPrize))
+                if (shuffleSound != null) {
+                    world.playSound(
+                        null,
+                        pos,
+                        shuffleSound,
+                        SoundCategory.BLOCKS,
+                        animation.shuffleSound.volume,
+                        animation.shuffleSound.pitch
+                    )
                 }
             }
+        }
 
-            val removeCrateDelay = finalPrizeDelay + 100 // 5 seconds converted to ticks
-            addTask(world, removeCrateDelay) { cratesInUse.remove(worldBlockPos) }
+        // Delay the final prize reveal so that the last random prize is shown for a while
+        val finalPrizeDelay = animation.ticksPerStep * (animation.steps + 1)
+
+        TickHandler.schedule(finalPrizeDelay) {
+            display.showFinalPrize(prizeStack(finalPrize))
+            awardPrize(finalPrize)
+        }
+
+        TickHandler.schedule(finalPrizeDelay + animation.holdTicks) {
+            display.discard()
+            cratesInUse.remove(worldBlockPos)
         }
     }
 
+    /** Hands out the prize: particles, the configured messages, and the reward commands. */
+    private fun awardPrize(prize: Prize) {
+        CrateParticles.rewardParticles(player, pos)
 
-    private fun showRandomPrizeRunnable(prize: Prize) = Runnable {
-        revealPrize(prize, false)
-        world.playSound(
-            null, pos, SoundEvents.BLOCK_NOTE_BLOCK_BANJO.value(), SoundCategory.BLOCKS, 0.5f, 1.0f
+        if (!prize.messageToOpener.isNullOrEmpty()) {
+            val message = prize.messageToOpener.replace("{prize_name}", prize.name)
+            ParseableMessage(message, player, prize.name).send()
+        }
+
+        if (!prize.broadcast.isNullOrEmpty()) {
+            var broadcast = prize.broadcast.replace("{prize_name}", prize.name)
+            broadcast = broadcast.replace("{player_name}", player.name.string)
+            broadcast = broadcast.replace("{crate_name}", crateName)
+            ParseableMessage(broadcast, player, prize.name).sendToAll()
+        }
+
+        runPrizeCommands(prize)
+    }
+
+    /**
+     * Prize commands used to run on the bare console source, which sits at world spawn - so
+     * relative coordinates and `@p` in a reward command resolved there instead of at the player who
+     * opened the crate. The source below keeps console permission but stands where the player does.
+     */
+    private fun runPrizeCommands(prize: Prize) {
+        val server = player.server
+        val source = server.commandSource.withWorld(player.serverWorld).withPosition(player.pos)
+            .withRotation(player.rotationClient).withEntity(player)
+
+        for (command in prize.commands) {
+            val cmd = command.replace("{player_name}", player.name.string)
+            try {
+                server.commandManager.dispatcher.execute(server.commandManager.dispatcher.parse(cmd, source))
+            } catch (e: Exception) {
+                logger.warn("[Pebbles-Crates] Reward command '$cmd' of crate '$crateName' failed: ${e.message}")
+                Messages.send(player, "crate.command-failed", "command" to command)
+            }
+        }
+    }
+
+    private fun prizeStack(prize: Prize): ItemStack {
+        val parsedPrize = Registries.ITEM.get(Identifier.tryParse(prize.material))
+        val itemStack = NbtItemUtil.applyNbt(
+            ItemStack(parsedPrize), prize.nbt, prize.amount, "prize '${prize.name}' in crate '$crateName'"
         )
-    }
 
+        // A prize whose material the game does not have; naming it would only decorate an empty stack.
+        if (itemStack.isEmpty) return itemStack
 
-    private val floatingPrizeItemEntityLock = Any()
-    private fun removeFloatingItem() {
-        synchronized(floatingPrizeItemEntityLock) {
-            lastFloatingPrizeItemEntity?.kill()
-            lastFloatingPrizeItemEntity = null
-        }
+        itemStack.set(DataComponentTypes.CUSTOM_NAME, ParseableName(prize.name).returnMessageAsStyledText())
+        return itemStack
     }
 
     fun canOpenCrate(): Boolean {
         val currentTime = System.currentTimeMillis()
+        val cooldown = GlobalConfigManager.crate.cooldownMillis
         val lastCrateOpenTime = playerCooldowns[player.uuid] ?: 0L
 
-        if (currentTime - lastCrateOpenTime < COOLDOWN_TIME) {
-            val remainingCooldown = (COOLDOWN_TIME - (currentTime - lastCrateOpenTime)) / 1000
-            player.sendMessage(
-                Text.literal("You can open another crate in $remainingCooldown seconds.").formatted(Formatting.RED),
-                false
-            )
+        if (currentTime - lastCrateOpenTime < cooldown) {
+            val remainingCooldown = (cooldown - (currentTime - lastCrateOpenTime)) / 1000
+            Messages.send(player, "crate.cooldown", "seconds" to remainingCooldown.toString())
             return false
         }
         return true
@@ -230,13 +191,4 @@ class CrateEventHandler(
         val currentTime = System.currentTimeMillis()
         playerCooldowns[player.uuid] = currentTime
     }
-
-    fun addTask(world: ServerWorld, tickDelay: Long, action: () -> Unit) {
-        val currentTick = world.time
-        val taskTick = currentTick + tickDelay
-        val task = Task(world, taskTick, action)
-        PebblesCrate.tasks.getOrPut(taskTick) { mutableListOf() }.add(task)
-    }
-
-
 }
